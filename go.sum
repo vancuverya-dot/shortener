@@ -1,0 +1,12 @@
+github.com/nicksnyder/basen v1.0.0 h1:hCs3I1Qth9tZv8taqst7iYyEpMsXf4f9cjZT0mTADUk=
+github.com/nicksnyder/basen v1.0.0/go.mod h1:IKOokMzzlenC6zabSIgjZHRp98CeBHUeVkOJLvofeJc=
+github.com/sixafter/aes-ctr-drbg v1.17.0 h1:0Ma6OsmkZ9PiMlyA9BXq1vB8kXgXWFDiTZORGZG6Jug=
+github.com/sixafter/aes-ctr-drbg v1.17.0/go.mod h1:iOBiPPkiy5Z5cEWm2yCoqEtnkfafxNTokJLL0zOPZeQ=
+github.com/sixafter/nanoid v1.63.1 h1:uGuziNFVnjC4r8u/n2MHZwDfA1og3M9PbTQ7Uy7kU7o=
+github.com/sixafter/nanoid v1.63.1/go.mod h1:i73+dib8Hs9atCl2nDjSSEnHGcKB9EI4/FGR40485Yc=
+github.com/sixafter/prng-chacha v1.15.0 h1:RKTNZw6vqkqLeDyoBEaQwjwFLMt0g39HmRonO0nYkhk=
+github.com/sixafter/prng-chacha v1.15.0/go.mod h1:dWUcbEWv8XEozjWGfm3YDYiXSbkYKA2he1DT5jgKhs8=
+golang.org/x/crypto v0.48.0 h1:/VRzVqiRSggnhY7gNRxPauEQ5Drw9haKdM0jqfcCFts=
+golang.org/x/crypto v0.48.0/go.mod h1:r0kV5h3qnFPlQnBSrULhlsRfryS2pmewsg+XfMgkVos=
+golang.org/x/sys v0.41.0 h1:Ivj+2Cp/ylzLiEU89QhWblYnOE9zerudt9Ftecq2C6k=
+golang.org/x/sys v0.41.0/go.mod h1:OgkHotnGiDImocRcuBABYBEXf8A9a87e/uXjp9XT3ks=
