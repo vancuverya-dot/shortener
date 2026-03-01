@@ -47,18 +47,21 @@ func UrlPost(w http.ResponseWriter, r *http.Request) {
 
 	bodyString := string(bodyBytes)
 
-	id, err := gen.New() // or gen.NewWithLength(10)
+	id, err := gen.New()
+
 	if err != nil {
 		fmt.Println("Error generating Nano ID:", err)
 		return
 	}
 
 	urls[id.String()] = bodyString
-	fmt.Fprintf(w, "%s%s", `http://localhost:8080/`, id.String())
+
+	w.Header().Set("Content-Type", "plain/text")
+	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte(`http://localhost:8080/` + id.String()))
 }
 
 func UrlGet(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	fmt.Fprintf(w, "%s", urls[id])
-
+	http.Redirect(w, r, urls[id], http.StatusTemporaryRedirect)
 }

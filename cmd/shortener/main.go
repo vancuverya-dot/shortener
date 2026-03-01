@@ -18,7 +18,7 @@ func main() {
 		http.Error(w, "not_allowed", http.StatusBadRequest)
 	})
 
-	err := http.ListenAndServe(`:8082`, mux)
+	err := http.ListenAndServe(`:8080`, mux)
 
 	if err != nil {
 		panic(err)
