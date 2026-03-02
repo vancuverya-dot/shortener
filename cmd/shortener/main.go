@@ -3,22 +3,21 @@ package main
 import (
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/vancuverya-dot/shortener/internal/handler"
 )
 
 func main() {
 
-	mux := http.NewServeMux()
+	r := chi.NewRouter()
+	r.Post("/", handler.UrlPost)
+	r.Get("/{id}", handler.UrlGet)
 
-	mux.HandleFunc(`POST /`, handler.UrlPost)
-
-	mux.HandleFunc("GET /{id}", handler.UrlGet)
-
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not_allowed", http.StatusBadRequest)
 	})
 
-	err := http.ListenAndServe(`:8082`, mux)
+	err := http.ListenAndServe(`:8080`, r)
 
 	if err != nil {
 		panic(err)
