@@ -4,10 +4,13 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/vancuverya-dot/shortener/internal/config"
 	"github.com/vancuverya-dot/shortener/internal/handler"
 )
 
 func main() {
+
+	config.ParseFlags()
 
 	r := chi.NewRouter()
 	r.Post("/", handler.UrlPost)
@@ -17,7 +20,7 @@ func main() {
 		http.Error(w, "not_allowed", http.StatusBadRequest)
 	})
 
-	err := http.ListenAndServe(`:8080`, r)
+	err := http.ListenAndServe(config.FlagRunAddr, r)
 
 	if err != nil {
 		panic(err)
