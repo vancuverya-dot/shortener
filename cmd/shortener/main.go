@@ -39,6 +39,7 @@ func main() {
 	r.Use(Logging)
 	r.Post("/", handler.UrlPost)
 	r.Get("/{id}", handler.UrlGet)
+	r.Post("/api/shorten", handler.UrlPostJson)
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not_allowed", http.StatusBadRequest)
@@ -52,6 +53,7 @@ func main() {
 
 func Logging(h http.Handler) http.Handler {
 	logFn := func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
 
 		responseData := &responseData{
 			status: 0,
@@ -61,21 +63,16 @@ func Logging(h http.Handler) http.Handler {
 			ResponseWriter: w,
 			responseData:   responseData,
 		}
-		h.ServeHTTP(&lw, r)
 
-		start := time.Now()
-		uri := r.RequestURI
-		method := r.Method
-		h.ServeHTTP(w, r)
+		h.ServeHTTP(&lw, r)
 		duration := time.Since(start)
 		sugar.Infoln(
-			"uri", uri,
-			"method", method,
+			"uri", r.RequestURI,
+			"method", r.Method,
 			"duration", duration,
 			"status", responseData.status,
 			"size", responseData.size,
 		)
-
 	}
 	return http.HandlerFunc(logFn)
 }
