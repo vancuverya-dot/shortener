@@ -73,7 +73,8 @@ func UrlPost(w http.ResponseWriter, r *http.Request) {
 
 func UrlPostJson(w http.ResponseWriter, r *http.Request) {
 
-	if !strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "application/json") {
+	if !strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "application/json") &&
+		!strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "text/plain") {
 		http.Error(w, "bad_mime_type", http.StatusBadRequest)
 		return
 	}
@@ -81,6 +82,7 @@ func UrlPostJson(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	var urlRequest UrlRequest
+
 	err := json.NewDecoder(r.Body).Decode(&urlRequest)
 
 	if err != nil {
