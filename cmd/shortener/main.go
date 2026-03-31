@@ -1,7 +1,11 @@
 package main
 
 import (
+	"context"
 	"net/http"
+	"os"
+	"os/signal"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/vancuverya-dot/shortener/internal/config"
@@ -20,9 +24,12 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
 	defer logger.Sync()
+
 	sugar = *logger.Sugar()
 
+	// конфигурация из флагов и переменных окружения
 	if config.EnvCfg.ServerAddress != "" {
 		config.FlagRunAddr = config.EnvCfg.ServerAddress
 	}
@@ -31,8 +38,22 @@ func main() {
 		config.BaseUrlAddr = config.EnvCfg.BaseUrl
 	}
 
-	r := chi.NewRouter()
+	if config.EnvCfg.FileStorage != "" {
+		config.FileStorage = config.EnvCfg.FileStorage
+	}
 
+	//загрузка данных из файла
+	handler.Urls, err = DeserializeFromFile(config.FileStorage)
+	if err != nil {
+		sugar.Errorf(err.Error(), "event", "deserialize file")
+	}
+
+	// Создаем контекст для graceful shutdown
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	//web сервер
+	r := chi.NewRouter()
 	//r.Use(middleware.Compress(5, "application/json", "text/html"))
 	//r.Use(middleware.Logger)
 
@@ -46,8 +67,25 @@ func main() {
 		http.Error(w, "not_allowed", http.StatusBadRequest)
 	})
 
-	if err := http.ListenAndServe(config.FlagRunAddr, r); err != nil {
-		sugar.Fatalw(err.Error(), "event", "start server")
+	server := &http.Server{
+		Addr:    config.FlagRunAddr,
+		Handler: r,
 	}
+
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			sugar.Fatalw(err.Error(), "event", "start server")
+		}
+	}()
+
+	<-ctx.Done()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		sugar.Errorw(err.Error(), "event", "server shutdown")
+	}
+
+	SerializeToFile(config.FileStorage, handler.Urls)
 
 }

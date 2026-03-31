@@ -20,8 +20,8 @@ func TestALL(t *testing.T) {
 }
 
 func TestUrlPost_ValidRequest(t *testing.T) {
-	// Reset the urls map for clean test
-	urls = make(map[string]string)
+	// Reset the Urls map for clean test
+	Urls = make(map[string]string)
 
 	testURL := "https://example.com/long/url/path"
 	body := bytes.NewBufferString(testURL)
@@ -48,8 +48,8 @@ func TestUrlPost_ValidRequest(t *testing.T) {
 	}
 
 	// Verify URL was stored
-	if urls[id] != testURL {
-		t.Errorf("expected stored URL to be %s, got %s", testURL, urls[id])
+	if Urls[id] != testURL {
+		t.Errorf("expected stored URL to be %s, got %s", testURL, Urls[id])
 	}
 }
 
@@ -88,7 +88,7 @@ func TestUrlPost_NoContentType(t *testing.T) {
 }
 
 func TestUrlPost_CaseInsensitiveContentType(t *testing.T) {
-	urls = make(map[string]string)
+	Urls = make(map[string]string)
 
 	testURL := "https://example.com/test"
 	body := bytes.NewBufferString(testURL)
@@ -105,7 +105,7 @@ func TestUrlPost_CaseInsensitiveContentType(t *testing.T) {
 }
 
 func TestUrlPost_EmptyBody(t *testing.T) {
-	urls = make(map[string]string)
+	Urls = make(map[string]string)
 
 	body := bytes.NewBufferString("")
 
@@ -122,13 +122,13 @@ func TestUrlPost_EmptyBody(t *testing.T) {
 	// Verify empty URL was stored
 	response := w.Body.String()
 	id := strings.TrimPrefix(response, "http://localhost:8080/")
-	if urls[id] != "" {
-		t.Errorf("expected stored URL to be empty, got %s", urls[id])
+	if Urls[id] != "" {
+		t.Errorf("expected stored URL to be empty, got %s", Urls[id])
 	}
 }
 
 func TestUrlPost_LongURL(t *testing.T) {
-	urls = make(map[string]string)
+	Urls = make(map[string]string)
 
 	longURL := "https://example.com/" + strings.Repeat("a", 1000)
 	body := bytes.NewBufferString(longURL)
@@ -145,15 +145,15 @@ func TestUrlPost_LongURL(t *testing.T) {
 
 	response := w.Body.String()
 	id := strings.TrimPrefix(response, "http://localhost:8080/")
-	if urls[id] != longURL {
-		t.Errorf("expected stored URL to match, got %s", urls[id])
+	if Urls[id] != longURL {
+		t.Errorf("expected stored URL to match, got %s", Urls[id])
 	}
 }
 
 func TestUrlPost_MultipleRequests(t *testing.T) {
-	urls = make(map[string]string)
+	Urls = make(map[string]string)
 
-	urls1 := []string{
+	Urls1 := []string{
 		"https://example.com/1",
 		"https://example.com/2",
 		"https://example.com/3",
@@ -161,7 +161,7 @@ func TestUrlPost_MultipleRequests(t *testing.T) {
 
 	var generatedIDs []string
 
-	for _, testURL := range urls1 {
+	for _, testURL := range Urls1 {
 		body := bytes.NewBufferString(testURL)
 		req := httptest.NewRequest("POST", "/", body)
 		req.Header.Set("Content-Type", "text/plain")
@@ -178,24 +178,24 @@ func TestUrlPost_MultipleRequests(t *testing.T) {
 		generatedIDs = append(generatedIDs, id)
 	}
 
-	// Verify all URLs are stored correctly
-	if len(urls) != 3 {
-		t.Errorf("expected 3 URLs stored, got %d", len(urls))
+	// Verify all Urls are stored correctly
+	if len(Urls) != 3 {
+		t.Errorf("expected 3 Urls stored, got %d", len(Urls))
 	}
 
 	for i, id := range generatedIDs {
-		if urls[id] != urls1[i] {
-			t.Errorf("expected stored URL to be %s, got %s", urls1[i], urls[id])
+		if Urls[id] != Urls1[i] {
+			t.Errorf("expected stored URL to be %s, got %s", Urls1[i], Urls[id])
 		}
 	}
 }
 
 func TestUrlGet_ExistingID(t *testing.T) {
-	urls = make(map[string]string)
+	Urls = make(map[string]string)
 
 	testID := "abc123"
 	testURL := "https://example.com/test"
-	urls[testID] = testURL
+	Urls[testID] = testURL
 
 	req := httptest.NewRequest("GET", "/"+testID, nil)
 	req.SetPathValue("id", testID)
@@ -213,7 +213,7 @@ func TestUrlGet_ExistingID(t *testing.T) {
 }
 
 func TestUrlGet_NonExistingID(t *testing.T) {
-	urls = make(map[string]string)
+	Urls = make(map[string]string)
 
 	req := httptest.NewRequest("GET", "/nonexistent", nil)
 	req.SetPathValue("id", "nonexistent")
@@ -230,8 +230,8 @@ func TestUrlGet_NonExistingID(t *testing.T) {
 	}
 }
 
-func TestUrlGet_MultipleStoredURLs(t *testing.T) {
-	urls = make(map[string]string)
+func TestUrlGet_MultipleStoredUrls(t *testing.T) {
+	Urls = make(map[string]string)
 
 	testData := map[string]string{
 		"id1": "https://example.com/1",
@@ -240,7 +240,7 @@ func TestUrlGet_MultipleStoredURLs(t *testing.T) {
 	}
 
 	for id, url := range testData {
-		urls[id] = url
+		Urls[id] = url
 	}
 
 	for id, expectedURL := range testData {
@@ -261,7 +261,7 @@ func TestUrlGet_MultipleStoredURLs(t *testing.T) {
 }
 
 func TestUrlGet_EmptyID(t *testing.T) {
-	urls = make(map[string]string)
+	Urls = make(map[string]string)
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.SetPathValue("id", "")
@@ -275,7 +275,7 @@ func TestUrlGet_EmptyID(t *testing.T) {
 }
 
 func TestUrlPost_BodyClosing(t *testing.T) {
-	urls = make(map[string]string)
+	Urls = make(map[string]string)
 
 	testURL := "https://example.com/test"
 	body := io.NopCloser(bytes.NewBufferString(testURL))

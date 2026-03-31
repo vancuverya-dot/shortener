@@ -11,7 +11,7 @@ import (
 	"github.com/sixafter/nanoid"
 )
 
-var urls map[string]string
+var Urls map[string]string
 var gen nanoid.Interface
 
 type UrlRequest struct {
@@ -24,7 +24,7 @@ type UrlResponse struct {
 
 // выполняется 1 раз до мэин
 func init() {
-	urls = make(map[string]string)
+	Urls = make(map[string]string)
 
 	alphabet := "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz0123456789"
 
@@ -64,7 +64,7 @@ func UrlPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	urls[id.String()] = bodyString
+	Urls[id.String()] = bodyString
 
 	w.Header().Set("Content-Type", "plain/text")
 	w.WriteHeader(http.StatusCreated)
@@ -100,7 +100,7 @@ func UrlPostJson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	urls[id.String()] = urlRequest.Url
+	Urls[id.String()] = urlRequest.Url
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -118,5 +118,5 @@ func UrlPostJson(w http.ResponseWriter, r *http.Request) {
 
 func UrlGet(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	http.Redirect(w, r, urls[id], http.StatusTemporaryRedirect)
+	http.Redirect(w, r, Urls[id], http.StatusTemporaryRedirect)
 }
