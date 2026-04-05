@@ -11,7 +11,7 @@ var (
 	once sync.Once
 )
 
-func Init() {
+func InitConsoleLogger() {
 	once.Do(func() {
 
 		baseLogger, _ := zap.NewDevelopment()
@@ -19,7 +19,7 @@ func Init() {
 	})
 }
 
-func Sync() {
+func SyncConsoleLogger() {
 	if Log != nil {
 		_ = Log.Sync()
 	}

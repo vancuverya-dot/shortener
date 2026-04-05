@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+
+	"github.com/vancuverya-dot/shortener/internal/service"
 )
 
 type URLPair struct {
@@ -13,7 +15,7 @@ type URLPair struct {
 
 func SerializeToFile(filename string, urlMap map[string]string) error {
 
-	fmt.Printf("Сохранение данных в файл: %s\n", filename)
+	service.Log.Infof("Сохранение данных в файл: %s\n", filename)
 
 	pairs := make([]URLPair, 0, len(urlMap))
 	for shortURL, originalURL := range urlMap {

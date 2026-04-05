@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -9,6 +8,7 @@ import (
 	"encoding/json"
 
 	"github.com/sixafter/nanoid"
+	"github.com/vancuverya-dot/shortener/internal/service"
 )
 
 var Urls map[string]string
@@ -22,7 +22,7 @@ type UrlResponse struct {
 	Result string `json:"result"`
 }
 
-func init() {
+func InitNanoId() {
 	Urls = make(map[string]string)
 
 	alphabet := "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz0123456789"
@@ -58,7 +58,7 @@ func UrlPost(w http.ResponseWriter, r *http.Request) {
 	id, err := gen.New()
 
 	if err != nil {
-		fmt.Println("shortener - Error generating Nano ID:", err)
+		service.Log.Errorw(err.Error(), "event", "shortener - Error generating Nano ID")
 		return
 	}
 
@@ -84,17 +84,17 @@ func UrlPostJson(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&urlRequest)
 
 	if err != nil {
-		fmt.Println(err.Error())
+		service.Log.Errorw(err.Error(), "event", "shortener - Invalid JSON")
 		http.Error(w, "shortener - Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
-	fmt.Println(urlRequest.Url)
+	service.Log.Infof("Received URL: %s", urlRequest.Url)
 
 	id, err := gen.New()
 
 	if err != nil {
-		fmt.Println("shortener - Error generating Nano ID:", err)
+		service.Log.Errorw(err.Error(), "event", "shortener - Error generating Nano ID")
 		return
 	}
 

@@ -15,9 +15,10 @@ import (
 
 func main() {
 
+	handler.InitNanoId()
 	serverConfig := config.LoadServerConfig()
-	service.Init()
-	defer service.Sync()
+	service.InitConsoleLogger()
+	defer service.SyncConsoleLogger()
 
 	var err error
 	handler.Urls, err = DeserializeFromFile(serverConfig.FileStorage)
