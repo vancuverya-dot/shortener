@@ -10,52 +10,25 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/vancuverya-dot/shortener/internal/config"
 	"github.com/vancuverya-dot/shortener/internal/handler"
-	"go.uber.org/zap"
+	"github.com/vancuverya-dot/shortener/internal/service"
 )
-
-var sugar zap.SugaredLogger
 
 func main() {
 
-	config.ParseFlags()
-	config.GetEnvs()
+	serverConfig := config.LoadServerConfig()
+	service.Init()
+	defer service.Sync()
 
-	logger, err := zap.NewDevelopment()
+	var err error
+	handler.Urls, err = DeserializeFromFile(serverConfig.FileStorage)
 	if err != nil {
-		panic(err)
+		service.Log.Errorf(err.Error(), "event", "deserialize file")
 	}
 
-	defer logger.Sync()
-
-	sugar = *logger.Sugar()
-
-	// конфигурация из флагов и переменных окружения
-	if config.EnvCfg.ServerAddress != "" {
-		config.FlagRunAddr = config.EnvCfg.ServerAddress
-	}
-
-	if config.EnvCfg.BaseUrl != "" {
-		config.BaseUrlAddr = config.EnvCfg.BaseUrl
-	}
-
-	if config.EnvCfg.FileStorage != "" {
-		config.FileStorage = config.EnvCfg.FileStorage
-	}
-
-	//загрузка данных из файла
-	handler.Urls, err = DeserializeFromFile(config.FileStorage)
-	if err != nil {
-		sugar.Errorf(err.Error(), "event", "deserialize file")
-	}
-
-	// Создаем контекст для graceful shutdown
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	//web сервер
 	r := chi.NewRouter()
-	//r.Use(middleware.Compress(5, "application/json", "text/html"))
-	//r.Use(middleware.Logger)
 
 	r.Use(GzipMiddleware)
 	r.Use(Logging)
@@ -68,13 +41,13 @@ func main() {
 	})
 
 	server := &http.Server{
-		Addr:    config.FlagRunAddr,
+		Addr:    serverConfig.ServerAddress,
 		Handler: r,
 	}
 
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			sugar.Fatalw(err.Error(), "event", "start server")
+			service.Log.Fatalw(err.Error(), "event", "start server")
 		}
 	}()
 
@@ -83,9 +56,9 @@ func main() {
 	defer cancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		sugar.Errorw(err.Error(), "event", "server shutdown")
+		service.Log.Errorw(err.Error(), "event", "server shutdown")
 	}
 
-	SerializeToFile(config.FileStorage, handler.Urls)
+	SerializeToFile(serverConfig.FileStorage, handler.Urls)
 
 }

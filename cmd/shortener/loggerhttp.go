@@ -3,6 +3,8 @@ package main
 import (
 	"net/http"
 	"time"
+
+	"github.com/vancuverya-dot/shortener/internal/service"
 )
 
 func Logging(h http.Handler) http.Handler {
@@ -20,7 +22,7 @@ func Logging(h http.Handler) http.Handler {
 
 		h.ServeHTTP(&lw, r)
 		duration := time.Since(start)
-		sugar.Infoln(
+		service.Log.Infoln(
 			"uri", r.RequestURI,
 			"method", r.Method,
 			"duration", duration,

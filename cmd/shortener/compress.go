@@ -3,20 +3,16 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
-	"fmt"
 	"io"
 	"maps"
 	"net/http"
 	"strings"
+
+	"github.com/vancuverya-dot/shortener/internal/service"
 )
 
 func GzipMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		// if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-		// 	next.ServeHTTP(w, r)
-		// 	return
-		// }
 
 		if r.Header.Get("Content-Encoding") == "gzip" {
 			bodyBytes, err := io.ReadAll(r.Body)
@@ -27,13 +23,14 @@ func GzipMiddleware(next http.Handler) http.Handler {
 			r.Body.Close()
 			gzReader, err := gzip.NewReader(bytes.NewReader(bodyBytes))
 			if err != nil {
-				fmt.Println("Not gzip data, treating as plain text:", err.Error())
+				service.Log.Errorw(err.Error(), "event", "Not gzip data")
 				r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 				r.Header.Del("Content-Encoding")
 			} else {
 				defer gzReader.Close()
 				decodedBody, err := io.ReadAll(gzReader)
 				if err != nil {
+					service.Log.Errorw(err.Error(), "event", "Failed to decode gzip body")
 					http.Error(w, "Failed to decode gzip body", http.StatusBadRequest)
 					return
 				}
@@ -41,18 +38,6 @@ func GzipMiddleware(next http.Handler) http.Handler {
 				r.Header.Del("Content-Encoding")
 			}
 		}
-
-		// gzReader, err := gzip.NewReader(r.Body)
-		// if err != nil {
-		// 	fmt.Println(err.Error())
-		// 	http.Error(w, "shortener - Failed to read gzip body", http.StatusBadRequest)
-		// 	return
-		// }
-
-		// r.Body = &gzipReader{
-		// 	Reader:     gzReader,
-		// 	ReadCloser: r.Body,
-		// }
 
 		rw := &responseWriter{
 			ResponseWriter: w,
@@ -72,7 +57,6 @@ func GzipMiddleware(next http.Handler) http.Handler {
 			w.Header().Set("Content-Encoding", "gzip")
 			w.Header().Del("Content-Length")
 
-			//запрещает изменять заголовки после WriteHeader
 			w.WriteHeader(rw.statusCode)
 
 			gzWriter := gzip.NewWriter(w)

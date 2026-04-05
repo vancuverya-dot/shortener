@@ -22,7 +22,6 @@ type UrlResponse struct {
 	Result string `json:"result"`
 }
 
-// выполняется 1 раз до мэин
 func init() {
 	Urls = make(map[string]string)
 
@@ -46,7 +45,6 @@ func UrlPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// закроем стрим после чтения в конце метода
 	defer r.Body.Close()
 
 	bodyBytes, err := io.ReadAll(r.Body)
