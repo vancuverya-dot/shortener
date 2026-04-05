@@ -10,6 +10,8 @@ import (
 )
 
 func TestRoutes(t *testing.T) {
+	handler.InitNanoId()
+
 	mux := http.NewServeMux()
 	mux.HandleFunc(`POST /`, handler.UrlPost)
 	mux.HandleFunc("GET /{id}", handler.UrlGet)
