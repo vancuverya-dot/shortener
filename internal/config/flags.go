@@ -24,7 +24,7 @@ func LoadServerConfig() *serverConfig {
 
 	flag.StringVar(&flagRunAddr, "a", ":8080", "address and port to run server")
 	flag.StringVar(&baseUrlAddr, "b", "http://localhost"+flagRunAddr+"/qsd54gFg", "base url address")
-	flag.StringVar(&fileStorage, "f", "D:/insomnia binary/urls.base", "file storage path")
+	flag.StringVar(&fileStorage, "f", "./urls.base", "file storage path")
 	flag.Parse()
 
 	if envConfig.ServerAddress != "" {
