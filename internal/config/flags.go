@@ -23,9 +23,13 @@ func LoadServerConfig() *serverConfig {
 	}
 
 	flag.StringVar(&flagRunAddr, "a", ":8080", "address and port to run server")
-	flag.StringVar(&baseUrlAddr, "b", "http://localhost"+flagRunAddr+"/qsd54gFg", "base url address")
+	flag.StringVar(&baseUrlAddr, "b", "", "base url address")
 	flag.StringVar(&fileStorage, "f", "./urls.base", "file storage path")
 	flag.Parse()
+
+	if len(baseUrlAddr) == 0 {
+		baseUrlAddr = "http://localhost" + flagRunAddr + "/qsd54gFg"
+	}
 
 	if envConfig.ServerAddress != "" {
 		flagRunAddr = envConfig.ServerAddress
