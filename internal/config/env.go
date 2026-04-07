@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/caarlos0/env/v6"
+	"github.com/caarlos0/env/v11"
 )
 
 type envConfig struct {
@@ -10,7 +10,7 @@ type envConfig struct {
 	FileStorage   string `env:"FILE_STORAGE_PATH"`
 }
 
-func LoadEnv() (*envConfig, error) {
+func loadEnv() (*envConfig, error) {
 	cfg := &envConfig{}
 	err := env.Parse(cfg)
 	if err != nil {

@@ -23,7 +23,7 @@ func main() {
 	var err error
 	handler.Urls, err = DeserializeFromFile(serverConfig.FileStorage)
 	if err != nil {
-		service.Log.Errorf(err.Error(), "event", "deserialize file")
+		service.Log.Fatalf(err.Error(), "event", "deserialize file")
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -46,13 +46,23 @@ func main() {
 		Handler: r,
 	}
 
+	errCh := make(chan error, 1)
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			service.Log.Fatalw(err.Error(), "event", "start server")
+			errCh <- err
+			return
 		}
 	}()
 
-	<-ctx.Done()
+	select {
+	case err := <-errCh:
+		service.Log.Errorw(err.Error(), "event", "start server failed")
+		return
+	case <-ctx.Done():
+		service.Log.Infow("DEBUG: SIGNAL RECEIVED!")
+		service.Log.Infow("server is shutting down", "event", "signal received")
+	}
+
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 

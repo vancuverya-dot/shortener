@@ -22,21 +22,23 @@ func GzipMiddleware(next http.Handler) http.Handler {
 			}
 			r.Body.Close()
 			gzReader, err := gzip.NewReader(bytes.NewReader(bodyBytes))
+
 			if err != nil {
-				service.Log.Errorw(err.Error(), "event", "Not gzip data")
-				r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-				r.Header.Del("Content-Encoding")
-			} else {
-				defer gzReader.Close()
-				decodedBody, err := io.ReadAll(gzReader)
-				if err != nil {
-					service.Log.Errorw(err.Error(), "event", "Failed to decode gzip body")
-					http.Error(w, "Failed to decode gzip body", http.StatusBadRequest)
-					return
-				}
-				r.Body = io.NopCloser(bytes.NewReader(decodedBody))
-				r.Header.Del("Content-Encoding")
+				service.Log.Debugw(err.Error(), "event", "Invalid gzip data")
+				http.Error(w, "Invalid gzip data", http.StatusBadRequest)
+				return
 			}
+
+			defer gzReader.Close()
+			decodedBody, err := io.ReadAll(gzReader)
+			if err != nil {
+				service.Log.Debugw(err.Error(), "event", "Failed to decode gzip body")
+				http.Error(w, "Failed to decode gzip body", http.StatusBadRequest)
+				return
+			}
+			r.Body = io.NopCloser(bytes.NewReader(decodedBody))
+			r.Header.Del("Content-Encoding")
+			// }
 		}
 
 		rw := &responseWriter{

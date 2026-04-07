@@ -12,7 +12,7 @@ func Logging(h http.Handler) http.Handler {
 		start := time.Now()
 
 		responseData := &responseData{
-			status: 0,
+			status: http.StatusOK,
 			size:   0,
 		}
 		lw := loggingResponseWriter{

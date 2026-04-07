@@ -17,7 +17,7 @@ func LoadServerConfig() *serverConfig {
 	var baseUrlAddr string
 	var fileStorage string
 
-	envConfig, err := LoadEnv()
+	envConfig, err := loadEnv()
 	if err != nil {
 		log.Fatalf("ошибка загрузки переменных окружения: %v", err)
 	}
