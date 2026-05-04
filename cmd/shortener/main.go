@@ -19,14 +19,15 @@ func main() {
 	serverConfig := config.LoadServerConfig()
 
 	var writeToBd bool = len(serverConfig.Database_dsn) > 0
-	handler.Init(writeToBd)
+	handler.Init(writeToBd, "http://"+serverConfig.ServerAddress+"/")
+	// service.Log.Fatalf("http://"+serverConfig.ServerAddress+"/", "event", "http://"+serverConfig.ServerAddress+"/")
 	service.InitConsoleLogger()
 	defer service.SyncConsoleLogger()
 
 	var err error
 
 	if writeToBd {
-		err = migration()
+		err = migration(serverConfig.Database_dsn)
 		if err != nil {
 			service.Log.Fatalf(err.Error(), "event", "migrate")
 		}

@@ -26,6 +26,7 @@ type UrlResponse struct {
 }
 
 var _writeToDb bool = false
+var _servPath string = ""
 
 type BatchRequest struct {
 	CorrelationID string `json:"correlation_id"`
@@ -37,8 +38,9 @@ type BatchResponse struct {
 	ShortURL      string `json:"short_url"`
 }
 
-func Init(writeToDb bool) {
+func Init(writeToDb bool, servPath string) {
 	_writeToDb = writeToDb
+	_servPath = servPath
 
 	Urls = make(map[string]string)
 
@@ -92,7 +94,7 @@ func UrlPostBatch(w http.ResponseWriter, r *http.Request) {
 
 		responses = append(responses, BatchResponse{
 			CorrelationID: req.CorrelationID,
-			ShortURL:      "http://localhost:8080/" + id.String(),
+			ShortURL:      _servPath + id.String(),
 		})
 	}
 

@@ -27,7 +27,6 @@ func LoadServerConfig() *serverConfig {
 	flag.StringVar(&flagRunAddr, "a", ":8080", "address and port to run server")
 	flag.StringVar(&baseUrlAddr, "b", "", "base url address")
 	flag.StringVar(&fileStorage, "f", "./urls.base", "file storage path")
-	// flag.StringVar(&databaseDsn, "d", "postgres://postgres:1@localhost:5432/ygo", "database DSN")
 	flag.StringVar(&databaseDsn, "d", "", "database DSN")
 	flag.Parse()
 

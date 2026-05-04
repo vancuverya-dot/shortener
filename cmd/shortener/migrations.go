@@ -16,14 +16,14 @@ import (
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
-func migration() error {
+func migration(dsn string) error {
 
 	src, err := iofs.New(migrationsFS, "migrations")
 	if err != nil {
 		return err
 	}
 
-	m, err := migrate.NewWithSourceInstance("iofs", src, "postgres://postgres:1@localhost:5432/ygo?sslmode=disable")
+	m, err := migrate.NewWithSourceInstance("iofs", src, dsn)
 	if err != nil {
 		return err
 	}
