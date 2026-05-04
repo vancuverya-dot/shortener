@@ -157,7 +157,7 @@ func UrlPost(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "plain/text")
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(`http://localhost:8080/` + id.String()))
+	w.Write([]byte(_servPath + id.String()))
 }
 
 func UrlPostJson(w http.ResponseWriter, r *http.Request) {
@@ -206,7 +206,7 @@ func UrlPostJson(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 
 	urlResonse := UrlResponse{
-		Result: `http://localhost:8080/` + id.String(),
+		Result: _servPath + id.String(),
 	}
 
 	err = json.NewEncoder(w).Encode(urlResonse)
