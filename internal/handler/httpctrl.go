@@ -1,13 +1,16 @@
 package handler
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"encoding/json"
 
 	"github.com/sixafter/nanoid"
+	"github.com/vancuverya-dot/shortener/internal/config/db"
 	"github.com/vancuverya-dot/shortener/internal/service"
 )
 
@@ -22,7 +25,21 @@ type UrlResponse struct {
 	Result string `json:"result"`
 }
 
-func InitNanoId() {
+var _writeToDb bool = false
+
+type BatchRequest struct {
+	CorrelationID string `json:"correlation_id"`
+	OriginalURL   string `json:"original_url"`
+}
+
+type BatchResponse struct {
+	CorrelationID string `json:"correlation_id"`
+	ShortURL      string `json:"short_url"`
+}
+
+func Init(writeToDb bool) {
+	_writeToDb = writeToDb
+
 	Urls = make(map[string]string)
 
 	alphabet := "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz0123456789"
@@ -36,6 +53,67 @@ func InitNanoId() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func UrlPostBatch(w http.ResponseWriter, r *http.Request) {
+	var requests []BatchRequest
+
+	if !strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "application/json") {
+		http.Error(w, "bad_mime_type", http.StatusBadRequest)
+		return
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&requests); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	responses := make([]BatchResponse, 0, len(requests))
+
+	for _, req := range requests {
+		id, err := gen.New()
+		if err != nil {
+			service.Log.Errorw(err.Error(), "event", "shortener - Error generating Nano ID")
+			return
+		}
+
+		if _writeToDb {
+			ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+			err = db.InsertURL(ctx, id.String(), req.OriginalURL)
+			cancel()
+
+			if err != nil {
+				service.Log.Errorw(err.Error(), "event", "shortener - Error inserting URL into database")
+				return
+			}
+		} else {
+			Urls[id.String()] = req.OriginalURL
+		}
+
+		responses = append(responses, BatchResponse{
+			CorrelationID: req.CorrelationID,
+			ShortURL:      "http://localhost:8080/" + id.String(),
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(responses)
+}
+
+func PingDB(w http.ResponseWriter, r *http.Request) {
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	err := db.PingDB(ctx)
+	if err != nil {
+		http.Error(w, "Database connection failed", http.StatusInternalServerError)
+		service.Log.Fatalf("Database ping failed", "error", err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func UrlPost(w http.ResponseWriter, r *http.Request) {
@@ -62,7 +140,18 @@ func UrlPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	Urls[id.String()] = bodyString
+	if _writeToDb {
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+
+		err = db.InsertURL(ctx, id.String(), bodyString)
+		if err != nil {
+			service.Log.Errorw(err.Error(), "event", "shortener - Error inserting URL into database")
+			return
+		}
+	} else {
+		Urls[id.String()] = bodyString
+	}
 
 	w.Header().Set("Content-Type", "plain/text")
 	w.WriteHeader(http.StatusCreated)
@@ -98,7 +187,18 @@ func UrlPostJson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	Urls[id.String()] = urlRequest.Url
+	if _writeToDb {
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+
+		err = db.InsertURL(ctx, id.String(), urlRequest.Url)
+		if err != nil {
+			service.Log.Errorw(err.Error(), "event", "shortener - Error inserting URL into database")
+			return
+		}
+	} else {
+		Urls[id.String()] = urlRequest.Url
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -115,6 +215,20 @@ func UrlPostJson(w http.ResponseWriter, r *http.Request) {
 }
 
 func UrlGet(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	http.Redirect(w, r, Urls[id], http.StatusTemporaryRedirect)
+
+	if _writeToDb {
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+
+		target, err := db.GetOriginalURL(ctx, r.PathValue("id"))
+		if err != nil {
+			service.Log.Errorw(err.Error(), "event", "shortener - Error retrieving URL from database")
+			http.Error(w, "500_error", http.StatusInternalServerError)
+			return
+		}
+		http.Redirect(w, r, target, http.StatusTemporaryRedirect)
+		return
+	}
+
+	http.Redirect(w, r, Urls[r.PathValue("id")], http.StatusTemporaryRedirect)
 }

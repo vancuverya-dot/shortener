@@ -9,21 +9,39 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/vancuverya-dot/shortener/internal/config"
+	"github.com/vancuverya-dot/shortener/internal/config/db"
 	"github.com/vancuverya-dot/shortener/internal/handler"
 	"github.com/vancuverya-dot/shortener/internal/service"
 )
 
 func main() {
 
-	handler.InitNanoId()
 	serverConfig := config.LoadServerConfig()
+
+	var writeToBd bool = len(serverConfig.Database_dsn) > 0
+	handler.Init(writeToBd)
 	service.InitConsoleLogger()
 	defer service.SyncConsoleLogger()
 
 	var err error
+
+	if writeToBd {
+		err = migration()
+		if err != nil {
+			service.Log.Fatalf(err.Error(), "event", "migrate")
+		}
+
+		err = db.InitDB(serverConfig.Database_dsn)
+		if err != nil {
+			service.Log.Fatalf(err.Error(), "event", "init db")
+		}
+		defer db.CloseDB()
+	}
+
 	handler.Urls, err = DeserializeFromFile(serverConfig.FileStorage)
 	if err != nil {
-		service.Log.Fatalf(err.Error(), "event", "deserialize file")
+		service.Log.Warnf(err.Error(), "event", "deserialize file")
+		handler.Urls = make(map[string]string)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -33,8 +51,10 @@ func main() {
 
 	r.Use(GzipMiddleware)
 	r.Use(Logging)
+	r.Get("/ping", handler.PingDB)
 	r.Post("/", handler.UrlPost)
 	r.Get("/{id}", handler.UrlGet)
+	r.Post("/api/shorten/batch", handler.UrlPostBatch)
 	r.Post("/api/shorten", handler.UrlPostJson)
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
@@ -59,7 +79,6 @@ func main() {
 		service.Log.Errorw(err.Error(), "event", "start server failed")
 		return
 	case <-ctx.Done():
-		service.Log.Infow("DEBUG: SIGNAL RECEIVED!")
 		service.Log.Infow("server is shutting down", "event", "signal received")
 	}
 
@@ -70,6 +89,8 @@ func main() {
 		service.Log.Errorw(err.Error(), "event", "server shutdown")
 	}
 
-	SerializeToFile(serverConfig.FileStorage, handler.Urls)
+	if !writeToBd {
+		SerializeToFile(serverConfig.FileStorage, handler.Urls)
+	}
 
 }

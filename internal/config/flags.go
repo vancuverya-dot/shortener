@@ -9,6 +9,7 @@ type serverConfig struct {
 	ServerAddress string
 	BaseUrl       string
 	FileStorage   string
+	Database_dsn  string
 }
 
 func LoadServerConfig() *serverConfig {
@@ -16,6 +17,7 @@ func LoadServerConfig() *serverConfig {
 	var flagRunAddr string
 	var baseUrlAddr string
 	var fileStorage string
+	var databaseDsn string
 
 	envConfig, err := loadEnv()
 	if err != nil {
@@ -25,6 +27,8 @@ func LoadServerConfig() *serverConfig {
 	flag.StringVar(&flagRunAddr, "a", ":8080", "address and port to run server")
 	flag.StringVar(&baseUrlAddr, "b", "", "base url address")
 	flag.StringVar(&fileStorage, "f", "./urls.base", "file storage path")
+	// flag.StringVar(&databaseDsn, "d", "postgres://postgres:1@localhost:5432/ygo", "database DSN")
+	flag.StringVar(&databaseDsn, "d", "", "database DSN")
 	flag.Parse()
 
 	if len(baseUrlAddr) == 0 {
@@ -43,10 +47,15 @@ func LoadServerConfig() *serverConfig {
 		fileStorage = envConfig.FileStorage
 	}
 
+	if envConfig.Database_dsn != "" {
+		databaseDsn = envConfig.Database_dsn
+	}
+
 	return &serverConfig{
 		ServerAddress: flagRunAddr,
 		BaseUrl:       baseUrlAddr,
 		FileStorage:   fileStorage,
+		Database_dsn:  databaseDsn,
 	}
 
 }
