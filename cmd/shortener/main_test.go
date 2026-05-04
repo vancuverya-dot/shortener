@@ -10,7 +10,7 @@ import (
 )
 
 func TestRoutes(t *testing.T) {
-	handler.InitNanoId()
+	handler.Init(false, "http://localhost:8080/")
 
 	mux := http.NewServeMux()
 	mux.HandleFunc(`POST /`, handler.UrlPost)
