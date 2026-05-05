@@ -20,7 +20,7 @@ func main() {
 
 	var writeToDb bool = len(serverConfig.Database_dsn) > 0
 
-	handler.Init(writeToDb, "http://localhost"+serverConfig.ServerAddress+"/")
+	handler.Init(writeToDb, "http://"+serverConfig.ServerAddress+"/")
 	service.InitConsoleLogger()
 	defer service.SyncConsoleLogger()
 

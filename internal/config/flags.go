@@ -24,7 +24,7 @@ func LoadServerConfig() *serverConfig {
 		log.Fatalf("ошибка загрузки переменных окружения: %v", err)
 	}
 
-	flag.StringVar(&flagRunAddr, "a", ":8080", "address and port to run server")
+	flag.StringVar(&flagRunAddr, "a", "localhost:8080", "address and port to run server")
 	flag.StringVar(&baseUrlAddr, "b", "", "base url address")
 	flag.StringVar(&fileStorage, "f", "./urls.base", "file storage path")
 	flag.StringVar(&databaseDsn, "d", "", "database DSN")
