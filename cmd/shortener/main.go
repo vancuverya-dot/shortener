@@ -18,15 +18,15 @@ func main() {
 
 	serverConfig := config.LoadServerConfig()
 
-	var writeToBd bool = len(serverConfig.Database_dsn) > 0
-	handler.Init(writeToBd, "http://"+serverConfig.ServerAddress+"/")
-	// service.Log.Fatalf("http://"+serverConfig.ServerAddress+"/", "event", "http://"+serverConfig.ServerAddress+"/")
+	var writeToDb bool = len(serverConfig.Database_dsn) > 0
+
+	handler.Init(writeToDb, serverConfig.BaseUrl)
 	service.InitConsoleLogger()
 	defer service.SyncConsoleLogger()
 
 	var err error
 
-	if writeToBd {
+	if writeToDb {
 		err = migration(serverConfig.Database_dsn)
 		if err != nil {
 			service.Log.Fatalf(err.Error(), "event", "migrate")
@@ -90,7 +90,7 @@ func main() {
 		service.Log.Errorw(err.Error(), "event", "server shutdown")
 	}
 
-	if !writeToBd {
+	if !writeToDb {
 		SerializeToFile(serverConfig.FileStorage, handler.Urls)
 	}
 

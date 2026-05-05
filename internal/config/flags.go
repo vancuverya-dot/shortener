@@ -31,7 +31,7 @@ func LoadServerConfig() *serverConfig {
 	flag.Parse()
 
 	if len(baseUrlAddr) == 0 {
-		baseUrlAddr = "http://" + flagRunAddr + "/qsd54gFg"
+		baseUrlAddr = "http://localhost" + flagRunAddr + "/"
 	}
 
 	if envConfig.ServerAddress != "" {

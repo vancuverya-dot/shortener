@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -81,13 +82,15 @@ func UrlPostBatch(w http.ResponseWriter, r *http.Request) {
 
 		if _writeToDb {
 			ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-			err = db.InsertURL(ctx, id.String(), req.OriginalURL)
+			_, err := db.InsertURL(ctx, id.String(), req.OriginalURL)
 			cancel()
 
-			if err != nil {
+			if err != nil && !errors.Is(err, db.ErrConflict) {
 				service.Log.Errorw(err.Error(), "event", "shortener - Error inserting URL into database")
+				http.Error(w, "internal error", http.StatusInternalServerError)
 				return
 			}
+
 		} else {
 			Urls[id.String()] = req.OriginalURL
 		}
@@ -146,9 +149,15 @@ func UrlPost(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 
-		err = db.InsertURL(ctx, id.String(), bodyString)
+		shortURL, err := db.InsertURL(ctx, id.String(), bodyString)
 		if err != nil {
-			service.Log.Errorw(err.Error(), "event", "shortener - Error inserting URL into database")
+			if errors.Is(err, db.ErrConflict) {
+				w.Header().Set("Content-Type", "plain/text")
+				w.WriteHeader(http.StatusConflict)
+				w.Write([]byte(_servPath + shortURL))
+				return
+			}
+			http.Error(w, "internal error", http.StatusConflict)
 			return
 		}
 	} else {
@@ -193,9 +202,19 @@ func UrlPostJson(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 
-		err = db.InsertURL(ctx, id.String(), urlRequest.Url)
+		shortURL, err := db.InsertURL(ctx, id.String(), urlRequest.Url)
 		if err != nil {
-			service.Log.Errorw(err.Error(), "event", "shortener - Error inserting URL into database")
+			if errors.Is(err, db.ErrConflict) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusConflict)
+
+				body, _ := json.Marshal(UrlResponse{
+					Result: _servPath + shortURL,
+				})
+				w.Write(body)
+				return
+			}
+			http.Error(w, "internal error", http.StatusConflict)
 			return
 		}
 	} else {
@@ -225,7 +244,7 @@ func UrlGet(w http.ResponseWriter, r *http.Request) {
 		target, err := db.GetOriginalURL(ctx, r.PathValue("id"))
 		if err != nil {
 			service.Log.Errorw(err.Error(), "event", "shortener - Error retrieving URL from database")
-			http.Error(w, "500_error", http.StatusInternalServerError)
+			http.Error(w, "500_error", http.StatusConflict)
 			return
 		}
 		http.Redirect(w, r, target, http.StatusTemporaryRedirect)
