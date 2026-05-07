@@ -6,16 +6,18 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"encoding/json"
 
 	"github.com/sixafter/nanoid"
-	"github.com/vancuverya-dot/shortener/internal/config/db"
 	"github.com/vancuverya-dot/shortener/internal/service"
+	"github.com/vancuverya-dot/shortener/internal/storage"
 )
 
 var Urls map[string]string
+var urlsMu sync.RWMutex
 var gen nanoid.Interface
 
 type UrlRequest struct {
@@ -82,17 +84,17 @@ func UrlPostBatch(w http.ResponseWriter, r *http.Request) {
 
 		if _writeToDb {
 			ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-			_, err := db.InsertURL(ctx, id.String(), req.OriginalURL)
+			_, err := storage.InsertURL(ctx, id.String(), req.OriginalURL)
 			cancel()
 
-			if err != nil && !errors.Is(err, db.ErrConflict) {
+			if err != nil && !errors.Is(err, storage.ErrConflict) {
 				service.Log.Errorw(err.Error(), "event", "shortener - Error inserting URL into database")
 				http.Error(w, "internal error", http.StatusInternalServerError)
 				return
 			}
 
 		} else {
-			Urls[id.String()] = req.OriginalURL
+			setURL(id.String(), req.OriginalURL)
 		}
 
 		responses = append(responses, BatchResponse{
@@ -111,7 +113,7 @@ func PingDB(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	err := db.PingDB(ctx)
+	err := storage.PingDB(ctx)
 	if err != nil {
 		http.Error(w, "Database connection failed", http.StatusInternalServerError)
 		service.Log.Fatalf("Database ping failed", "error", err.Error())
@@ -149,9 +151,9 @@ func UrlPost(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 
-		shortURL, err := db.InsertURL(ctx, id.String(), bodyString)
+		shortURL, err := storage.InsertURL(ctx, id.String(), bodyString)
 		if err != nil {
-			if errors.Is(err, db.ErrConflict) {
+			if errors.Is(err, storage.ErrConflict) {
 				w.Header().Set("Content-Type", "plain/text")
 				w.WriteHeader(http.StatusConflict)
 				w.Write([]byte(_servPath + shortURL))
@@ -161,7 +163,7 @@ func UrlPost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		Urls[id.String()] = bodyString
+		setURL(id.String(), bodyString)
 	}
 
 	w.Header().Set("Content-Type", "plain/text")
@@ -202,9 +204,9 @@ func UrlPostJson(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 
-		shortURL, err := db.InsertURL(ctx, id.String(), urlRequest.Url)
+		shortURL, err := storage.InsertURL(ctx, id.String(), urlRequest.Url)
 		if err != nil {
-			if errors.Is(err, db.ErrConflict) {
+			if errors.Is(err, storage.ErrConflict) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusConflict)
 
@@ -218,7 +220,7 @@ func UrlPostJson(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		Urls[id.String()] = urlRequest.Url
+		setURL(id.String(), urlRequest.Url)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -241,7 +243,7 @@ func UrlGet(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 
-		target, err := db.GetOriginalURL(ctx, r.PathValue("id"))
+		target, err := storage.GetOriginalURL(ctx, getURL(r.PathValue("id")))
 		if err != nil {
 			service.Log.Errorw(err.Error(), "event", "shortener - Error retrieving URL from database")
 			http.Error(w, "500_error", http.StatusConflict)
@@ -252,4 +254,17 @@ func UrlGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, Urls[r.PathValue("id")], http.StatusTemporaryRedirect)
+}
+
+func setURL(short, original string) {
+	urlsMu.Lock()
+	defer urlsMu.Unlock()
+	Urls[short] = original
+}
+
+func getURL(short string) string {
+	urlsMu.RLock()
+	defer urlsMu.RUnlock()
+	v := Urls[short]
+	return v
 }

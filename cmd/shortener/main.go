@@ -8,10 +8,12 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/vancuverya-dot/shortener/internal/config"
 	"github.com/vancuverya-dot/shortener/internal/config/db"
 	"github.com/vancuverya-dot/shortener/internal/handler"
 	"github.com/vancuverya-dot/shortener/internal/service"
+	"github.com/vancuverya-dot/shortener/internal/storage"
 )
 
 func main() {
@@ -29,13 +31,15 @@ func main() {
 	if writeToDb {
 		err = migration(serverConfig.Database_dsn)
 		if err != nil {
-			service.Log.Fatalf(err.Error(), "event", "migrate")
+			service.Log.Errorw(err.Error(), "event", "migrate")
 		}
 
-		err = db.InitDB(serverConfig.Database_dsn)
+		var dbConn *pgx.Conn
+		dbConn, err = db.InitDB(serverConfig.Database_dsn)
 		if err != nil {
-			service.Log.Fatalf(err.Error(), "event", "init db")
+			service.Log.Errorw(err.Error(), "event", "init db")
 		}
+		storage.Init(dbConn)
 		defer db.CloseDB()
 	}
 
