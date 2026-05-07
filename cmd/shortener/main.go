@@ -20,7 +20,7 @@ func main() {
 
 	serverConfig := config.LoadServerConfig()
 
-	var writeToDb bool = len(serverConfig.Database_dsn) > 0
+	var writeToDb bool = len(serverConfig.DatabaseDSN) > 0
 
 	handler.Init(writeToDb, "http://"+serverConfig.ServerAddress+"/")
 	service.InitConsoleLogger()
@@ -29,13 +29,13 @@ func main() {
 	var err error
 
 	if writeToDb {
-		err = migration(serverConfig.Database_dsn)
+		err = migration(serverConfig.DatabaseDSN)
 		if err != nil {
 			service.Log.Errorw(err.Error(), "event", "migrate")
 		}
 
 		var dbConn *pgx.Conn
-		dbConn, err = db.InitDB(serverConfig.Database_dsn)
+		dbConn, err = db.InitDB(serverConfig.DatabaseDSN)
 		if err != nil {
 			service.Log.Errorw(err.Error(), "event", "init db")
 		}

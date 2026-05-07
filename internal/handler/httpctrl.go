@@ -75,37 +75,57 @@ func UrlPostBatch(w http.ResponseWriter, r *http.Request) {
 
 	responses := make([]BatchResponse, 0, len(requests))
 
-	for _, req := range requests {
-		id, err := gen.New()
-		if err != nil {
-			service.Log.Errorw(err.Error(), "event", "shortener - Error generating Nano ID")
-			return
-		}
+	if _writeToDb {
+		shortURLs := make([]string, len(requests))
+		originalURLs := make([]string, len(requests))
 
-		if _writeToDb {
-			ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-			_, err := storage.InsertURL(ctx, id.String(), req.OriginalURL)
-			cancel()
-
-			if err != nil && !errors.Is(err, storage.ErrConflict) {
-				service.Log.Errorw(err.Error(), "event", "shortener - Error inserting URL into database")
+		for i, req := range requests {
+			id, err := gen.New()
+			if err != nil {
+				service.Log.Errorw(err.Error(), "event", "shortener - Error generating Nano ID")
 				http.Error(w, "internal error", http.StatusInternalServerError)
 				return
 			}
-
-		} else {
-			setURL(id.String(), req.OriginalURL)
+			shortURLs[i] = id.String()
+			originalURLs[i] = req.OriginalURL
 		}
 
-		responses = append(responses, BatchResponse{
-			CorrelationID: req.CorrelationID,
-			ShortURL:      _servPath + id.String(),
-		})
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+
+		resultIDs, err := storage.InsertURLBatch(ctx, shortURLs, originalURLs)
+		if err != nil {
+			service.Log.Errorw(err.Error(), "event", "shortener - Error inserting URL batch into database")
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+
+		for i, req := range requests {
+			responses = append(responses, BatchResponse{
+				CorrelationID: req.CorrelationID,
+				ShortURL:      _servPath + resultIDs[i],
+			})
+		}
+	} else {
+		for _, req := range requests {
+			id, err := gen.New()
+			if err != nil {
+				service.Log.Errorw(err.Error(), "event", "shortener - Error generating Nano ID")
+				http.Error(w, "internal error", http.StatusInternalServerError)
+				return
+			}
+			setURL(id.String(), req.OriginalURL)
+			responses = append(responses, BatchResponse{
+				CorrelationID: req.CorrelationID,
+				ShortURL:      _servPath + id.String(),
+			})
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(responses)
+	body, _ := json.Marshal(responses)
+	w.Write(body)
 }
 
 func PingDB(w http.ResponseWriter, r *http.Request) {
@@ -116,7 +136,7 @@ func PingDB(w http.ResponseWriter, r *http.Request) {
 	err := storage.PingDB(ctx)
 	if err != nil {
 		http.Error(w, "Database connection failed", http.StatusInternalServerError)
-		service.Log.Fatalf("Database ping failed", "error", err.Error())
+		service.Log.Errorw("Database ping failed", "error", err.Error())
 		return
 	}
 
@@ -243,17 +263,17 @@ func UrlGet(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 
-		target, err := storage.GetOriginalURL(ctx, getURL(r.PathValue("id")))
+		target, err := storage.GetOriginalURL(ctx, r.PathValue("id"))
 		if err != nil {
 			service.Log.Errorw(err.Error(), "event", "shortener - Error retrieving URL from database")
-			http.Error(w, "500_error", http.StatusConflict)
+			http.Error(w, "500_error", http.StatusInternalServerError)
 			return
 		}
 		http.Redirect(w, r, target, http.StatusTemporaryRedirect)
 		return
 	}
 
-	http.Redirect(w, r, Urls[r.PathValue("id")], http.StatusTemporaryRedirect)
+	http.Redirect(w, r, getURL(r.PathValue("id")), http.StatusTemporaryRedirect)
 }
 
 func setURL(short, original string) {

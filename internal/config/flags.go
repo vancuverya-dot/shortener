@@ -9,7 +9,7 @@ type serverConfig struct {
 	ServerAddress string
 	BaseUrl       string
 	FileStorage   string
-	Database_dsn  string
+	DatabaseDSN   string
 }
 
 func LoadServerConfig() *serverConfig {
@@ -46,15 +46,15 @@ func LoadServerConfig() *serverConfig {
 		fileStorage = envConfig.FileStorage
 	}
 
-	if envConfig.Database_dsn != "" {
-		databaseDsn = envConfig.Database_dsn
+	if envConfig.DatabaseDSN != "" {
+		databaseDsn = envConfig.DatabaseDSN
 	}
 
 	return &serverConfig{
 		ServerAddress: flagRunAddr,
 		BaseUrl:       baseUrlAddr,
 		FileStorage:   fileStorage,
-		Database_dsn:  databaseDsn,
+		DatabaseDSN:   databaseDsn,
 	}
 
 }

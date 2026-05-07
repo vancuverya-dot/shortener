@@ -8,7 +8,7 @@ type envConfig struct {
 	ServerAddress string `env:"SERVER_ADDRESS"`
 	BaseUrl       string `env:"BASE_URL"`
 	FileStorage   string `env:"FILE_STORAGE_PATH"`
-	Database_dsn  string `env:"DATABASE_DSN"`
+	DatabaseDSN   string `env:"DATABASE_DSN"`
 }
 
 func loadEnv() (*envConfig, error) {
