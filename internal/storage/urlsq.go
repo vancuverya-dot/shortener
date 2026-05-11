@@ -86,7 +86,7 @@ func InsertURLBatch(ctx context.Context, shortURLs []string, originalURLs []stri
 
 	for i := range shortURLs {
 		batch.Queue(
-			`INSERT INTO public.urls (urls_short_url, urls_original_url, user_id) 
+			`INSERT INTO public.urls (urls_short_url, urls_original_url) 
              VALUES ($1, $2) 
              ON CONFLICT (urls_original_url) DO UPDATE 
              SET is_deleted = FALSE
