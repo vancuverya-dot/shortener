@@ -24,9 +24,9 @@ func PingDB(ctx context.Context) error {
 
 var ErrConflict = errors.New("original URL already exists")
 
-func InsertURL(ctx context.Context, shortURL string, originalURL string) (string, error) {
-	_, err := _dbConn.Exec(ctx, "INSERT INTO public.urls (urls_short_url, urls_original_url) VALUES ($1, $2)",
-		shortURL, originalURL,
+func InsertURL(ctx context.Context, shortURL string, originalURL string, userID string) (string, error) {
+	_, err := _dbConn.Exec(ctx, "INSERT INTO public.urls (urls_short_url, urls_original_url, user_id) VALUES ($1, $2, $3)",
+		shortURL, originalURL, userID,
 	)
 
 	if err != nil {
@@ -44,16 +44,17 @@ func InsertURL(ctx context.Context, shortURL string, originalURL string) (string
 	return shortURL, nil
 }
 
-func GetOriginalURL(ctx context.Context, shortURL string) (string, error) {
+func GetOriginalURL(ctx context.Context, shortURL string) (string, bool, error) {
 	var originalURL string
+	var isDeleted bool
 	err := _dbConn.QueryRow(ctx,
-		"SELECT urls_original_url FROM public.urls WHERE urls_short_url = $1",
+		"SELECT urls_original_url, is_deleted FROM urls WHERE urls_short_url = $1",
 		shortURL,
-	).Scan(&originalURL)
+	).Scan(&originalURL, &isDeleted)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
-	return originalURL, nil
+	return originalURL, isDeleted, nil
 }
 
 func GetShortURL(ctx context.Context, shortURL string) (string, error) {
@@ -101,4 +102,48 @@ func InsertURLBatch(ctx context.Context, shortURLs []string, originalURLs []stri
 	}
 
 	return resultIDs, nil
+}
+
+func GetURLsByUser(ctx context.Context, userID string) ([]string, []string, error) {
+	rows, err := _dbConn.Query(ctx,
+		"SELECT urls_short_url, urls_original_url FROM public.urls WHERE user_id = $1",
+		userID,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer rows.Close()
+
+	var shortURLs, originalURLs []string
+	for rows.Next() {
+		var short, original string
+		if err := rows.Scan(&short, &original); err != nil {
+			return nil, nil, err
+		}
+		shortURLs = append(shortURLs, short)
+		originalURLs = append(originalURLs, original)
+	}
+	return shortURLs, originalURLs, nil
+}
+
+func DeleteURLBatch(ctx context.Context, shortURLs []string, userID string) error {
+	batch := &pgx.Batch{}
+
+	for _, shortURL := range shortURLs {
+		batch.Queue(
+			"UPDATE public.urls SET is_deleted = TRUE WHERE urls_short_url = $1 AND user_id = $2",
+			shortURL, userID,
+		)
+	}
+
+	results := _dbConn.SendBatch(ctx, batch)
+	defer results.Close()
+
+	for range shortURLs {
+		if _, err := results.Exec(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

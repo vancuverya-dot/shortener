@@ -61,6 +61,8 @@ func main() {
 	r.Get("/{id}", handler.UrlGet)
 	r.Post("/api/shorten/batch", handler.UrlPostBatch)
 	r.Post("/api/shorten", handler.UrlPostJson)
+	r.Get("/api/user/urls", handler.GetURLsByUser)
+	r.Delete("/api/user/urls", handler.UrlDelete)
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not_allowed", http.StatusBadRequest)

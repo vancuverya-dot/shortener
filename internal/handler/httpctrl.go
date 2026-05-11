@@ -12,13 +12,19 @@ import (
 	"encoding/json"
 
 	"github.com/sixafter/nanoid"
+	"github.com/vancuverya-dot/shortener/internal/auth"
 	"github.com/vancuverya-dot/shortener/internal/service"
 	"github.com/vancuverya-dot/shortener/internal/storage"
 )
 
-var Urls map[string]string
-var urlsMu sync.RWMutex
-var gen nanoid.Interface
+var (
+	Urls       map[string]string
+	urlsMu     sync.RWMutex
+	gen        nanoid.Interface
+	_writeToDb bool   = false
+	_servPath  string = ""
+	_worker    *service.Worker
+)
 
 type UrlRequest struct {
 	Url string `json:"url"`
@@ -27,9 +33,6 @@ type UrlRequest struct {
 type UrlResponse struct {
 	Result string `json:"result"`
 }
-
-var _writeToDb bool = false
-var _servPath string = ""
 
 type BatchRequest struct {
 	CorrelationID string `json:"correlation_id"`
@@ -41,10 +44,15 @@ type BatchResponse struct {
 	ShortURL      string `json:"short_url"`
 }
 
+type UserURLResponse struct {
+	ShortURL    string `json:"short_url"`
+	OriginalURL string `json:"original_url"`
+}
+
 func Init(writeToDb bool, servPath string) {
 	_writeToDb = writeToDb
 	_servPath = servPath
-
+	_worker = service.NewWorker(storage.DeleteURLBatch)
 	Urls = make(map[string]string)
 
 	alphabet := "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz0123456789"
@@ -159,6 +167,10 @@ func UrlPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	bodyString := string(bodyBytes)
+	userID, err := auth.GetOrCreateUserID(w, r)
+	if err != nil {
+		service.Log.Errorw(err.Error(), "event", "shortener - Error getting or creating user ID")
+	}
 
 	id, err := gen.New()
 
@@ -171,7 +183,7 @@ func UrlPost(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 
-		shortURL, err := storage.InsertURL(ctx, id.String(), bodyString)
+		shortURL, err := storage.InsertURL(ctx, id.String(), bodyString, userID)
 		if err != nil {
 			if errors.Is(err, storage.ErrConflict) {
 				w.Header().Set("Content-Type", "plain/text")
@@ -211,6 +223,11 @@ func UrlPostJson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userID, err := auth.GetOrCreateUserID(w, r)
+	if err != nil {
+		service.Log.Errorw(err.Error(), "event", "shortener - Error getting or creating user ID")
+	}
+
 	service.Log.Infof("Received URL: %s", urlRequest.Url)
 
 	id, err := gen.New()
@@ -224,7 +241,7 @@ func UrlPostJson(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 
-		shortURL, err := storage.InsertURL(ctx, id.String(), urlRequest.Url)
+		shortURL, err := storage.InsertURL(ctx, id.String(), urlRequest.Url, userID)
 		if err != nil {
 			if errors.Is(err, storage.ErrConflict) {
 				w.Header().Set("Content-Type", "application/json")
@@ -263,10 +280,14 @@ func UrlGet(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 
-		target, err := storage.GetOriginalURL(ctx, r.PathValue("id"))
+		target, isDeleted, err := storage.GetOriginalURL(ctx, r.PathValue("id"))
 		if err != nil {
 			service.Log.Errorw(err.Error(), "event", "shortener - Error retrieving URL from database")
 			http.Error(w, "500_error", http.StatusInternalServerError)
+			return
+		}
+		if isDeleted {
+			w.WriteHeader(http.StatusGone)
 			return
 		}
 		http.Redirect(w, r, target, http.StatusTemporaryRedirect)
@@ -287,4 +308,63 @@ func getURL(short string) string {
 	defer urlsMu.RUnlock()
 	v := Urls[short]
 	return v
+}
+
+func GetURLsByUser(w http.ResponseWriter, r *http.Request) {
+	userID, err := auth.GetOrCreateUserID(w, r)
+	if err != nil {
+		service.Log.Errorw(err.Error(), "event", "shortener - Error getting or creating user ID")
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	shortURLs, originalURLs, err := storage.GetURLsByUser(ctx, userID)
+	if err != nil {
+		service.Log.Errorw(err.Error(), "event", "shortener - Error retrieving URLs by user")
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	if len(shortURLs) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	responses := make([]UserURLResponse, len(shortURLs))
+	for i := range shortURLs {
+		responses[i] = UserURLResponse{
+			ShortURL:    _servPath + shortURLs[i],
+			OriginalURL: originalURLs[i],
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	body, _ := json.Marshal(responses)
+	w.Write(body)
+}
+
+func UrlDelete(w http.ResponseWriter, r *http.Request) {
+	userID, err := auth.GetOrCreateUserID(w, r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var shortURLs []string
+	if err := json.NewDecoder(r.Body).Decode(&shortURLs); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	go func() {
+		_worker.Add(service.DeleteTask{
+			ShortURLs: shortURLs,
+			UserID:    userID,
+		})
+	}()
+
+	w.WriteHeader(http.StatusAccepted)
 }
