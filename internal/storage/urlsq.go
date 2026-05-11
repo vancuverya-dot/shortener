@@ -7,11 +7,12 @@ import (
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var _dbConn *pgx.Conn
+var _dbConn *pgxpool.Pool
 
-func Init(dbConn *pgx.Conn) {
+func Init(dbConn *pgxpool.Pool) {
 	_dbConn = dbConn
 }
 

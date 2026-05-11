@@ -3,23 +3,23 @@ package db
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var dbConn *pgx.Conn
+var dbConn *pgxpool.Pool
 
-func InitDB(conn string) (*pgx.Conn, error) {
+func InitDB(conn string) (*pgxpool.Pool, error) {
+
 	var err error
-	dbConn, err = pgx.Connect(context.Background(), conn)
+	dbConn, err = pgxpool.New(context.Background(), conn)
 	if err != nil {
 		return nil, err
 	}
-
 	return dbConn, nil
 }
 
 func CloseDB() {
 	if dbConn != nil {
-		dbConn.Close(context.Background())
+		dbConn.Close()
 	}
 }

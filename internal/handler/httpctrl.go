@@ -191,7 +191,8 @@ func UrlPost(w http.ResponseWriter, r *http.Request) {
 				w.Write([]byte(_servPath + shortURL))
 				return
 			}
-			http.Error(w, "internal error", http.StatusConflict)
+			service.Log.Errorw(err.Error(), "event", "shortener - Error inserting url")
+			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
 	} else {

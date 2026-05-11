@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vancuverya-dot/shortener/internal/config"
 	"github.com/vancuverya-dot/shortener/internal/config/db"
 	"github.com/vancuverya-dot/shortener/internal/handler"
@@ -34,7 +34,7 @@ func main() {
 			service.Log.Errorw(err.Error(), "event", "migrate")
 		}
 
-		var dbConn *pgx.Conn
+		var dbConn *pgxpool.Pool
 		dbConn, err = db.InitDB(serverConfig.DatabaseDSN)
 		if err != nil {
 			service.Log.Errorw(err.Error(), "event", "init db")
