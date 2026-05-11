@@ -25,7 +25,18 @@ func PingDB(ctx context.Context) error {
 var ErrConflict = errors.New("original URL already exists")
 
 func InsertURL(ctx context.Context, shortURL string, originalURL string, userID string) (string, error) {
-	_, err := _dbConn.Exec(ctx, "INSERT INTO public.urls (urls_short_url, urls_original_url, user_id) VALUES ($1, $2, $3)",
+
+	var existingShort string
+	err := _dbConn.QueryRow(ctx,
+		`UPDATE public.urls SET is_deleted = FALSE, user_id = $1 WHERE urls_original_url = $2 AND is_deleted = true RETURNING urls_short_url`,
+		userID, originalURL,
+	).Scan(&existingShort)
+
+	if err == nil {
+		return existingShort, nil
+	}
+
+	_, err = _dbConn.Exec(ctx, "INSERT INTO public.urls (urls_short_url, urls_original_url, user_id) VALUES ($1, $2, $3)",
 		shortURL, originalURL, userID,
 	)
 
@@ -48,7 +59,7 @@ func GetOriginalURL(ctx context.Context, shortURL string) (string, bool, error) 
 	var originalURL string
 	var isDeleted bool
 	err := _dbConn.QueryRow(ctx,
-		"SELECT urls_original_url, is_deleted FROM urls WHERE urls_short_url = $1",
+		"SELECT urls_original_url, is_deleted FROM public.urls WHERE urls_short_url = $1",
 		shortURL,
 	).Scan(&originalURL, &isDeleted)
 	if err != nil {
@@ -60,7 +71,7 @@ func GetOriginalURL(ctx context.Context, shortURL string) (string, bool, error) 
 func GetShortURL(ctx context.Context, shortURL string) (string, error) {
 	var originalURL string
 	err := _dbConn.QueryRow(ctx,
-		"SELECT urls_short_url FROM public.urls WHERE urls_original_url = $1",
+		"SELECT urls_short_url FROM public.urls WHERE urls_original_url = $1 and is_deleted = false",
 		shortURL,
 	).Scan(&originalURL)
 	if err != nil {
@@ -74,7 +85,11 @@ func InsertURLBatch(ctx context.Context, shortURLs []string, originalURLs []stri
 
 	for i := range shortURLs {
 		batch.Queue(
-			"INSERT INTO public.urls (urls_short_url, urls_original_url) VALUES ($1, $2) ON CONFLICT (urls_original_url) DO NOTHING",
+			`INSERT INTO public.urls (urls_short_url, urls_original_url, user_id) 
+             VALUES ($1, $2) 
+             ON CONFLICT (urls_original_url) DO UPDATE 
+             SET is_deleted = FALSE
+             RETURNING urls_short_url`,
 			shortURLs[i], originalURLs[i],
 		)
 	}
@@ -106,7 +121,7 @@ func InsertURLBatch(ctx context.Context, shortURLs []string, originalURLs []stri
 
 func GetURLsByUser(ctx context.Context, userID string) ([]string, []string, error) {
 	rows, err := _dbConn.Query(ctx,
-		"SELECT urls_short_url, urls_original_url FROM public.urls WHERE user_id = $1",
+		"SELECT urls_short_url, urls_original_url FROM public.urls WHERE user_id = $1 and is_deleted = false",
 		userID,
 	)
 	if err != nil {
