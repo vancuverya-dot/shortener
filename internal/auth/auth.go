@@ -78,3 +78,17 @@ func GetOrCreateUserID(w http.ResponseWriter, r *http.Request) (string, error) {
 
 	return userID, nil
 }
+
+func GetUserID(r *http.Request) string {
+	cookie, err := r.Cookie(cookieToken)
+	if err != nil {
+		return ""
+	}
+
+	userID, err := parseToken(cookie.Value)
+	if err != nil {
+		return ""
+	}
+
+	return userID
+}

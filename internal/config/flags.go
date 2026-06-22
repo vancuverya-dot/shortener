@@ -10,6 +10,8 @@ type serverConfig struct {
 	BaseUrl       string
 	FileStorage   string
 	DatabaseDSN   string
+	AuditFile     string
+	AuditUrl      string
 }
 
 func LoadServerConfig() *serverConfig {
@@ -18,6 +20,8 @@ func LoadServerConfig() *serverConfig {
 	var baseUrlAddr string
 	var fileStorage string
 	var databaseDsn string
+	var auditFile string
+	var auditUrl string
 
 	envConfig, err := loadEnv()
 	if err != nil {
@@ -28,6 +32,8 @@ func LoadServerConfig() *serverConfig {
 	flag.StringVar(&baseUrlAddr, "b", "", "base url address")
 	flag.StringVar(&fileStorage, "f", "./urls.base", "file storage path")
 	flag.StringVar(&databaseDsn, "d", "", "database DSN")
+	flag.StringVar(&auditFile, "audit-file", "", "audit file path")
+	flag.StringVar(&auditUrl, "audit-url", "", "audit url")
 	flag.Parse()
 
 	if len(baseUrlAddr) == 0 {
@@ -50,11 +56,21 @@ func LoadServerConfig() *serverConfig {
 		databaseDsn = envConfig.DatabaseDSN
 	}
 
+	if envConfig.AuditFile != "" {
+		auditFile = envConfig.AuditFile
+	}
+
+	if envConfig.AuditUrl != "" {
+		auditUrl = envConfig.AuditUrl
+	}
+
 	return &serverConfig{
 		ServerAddress: flagRunAddr,
 		BaseUrl:       baseUrlAddr,
 		FileStorage:   fileStorage,
 		DatabaseDSN:   databaseDsn,
+		AuditFile:     auditFile,
+		AuditUrl:      auditUrl,
 	}
 
 }

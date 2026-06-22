@@ -13,6 +13,7 @@ import (
 
 	"github.com/sixafter/nanoid"
 	"github.com/vancuverya-dot/shortener/internal/auth"
+	"github.com/vancuverya-dot/shortener/internal/observer"
 	"github.com/vancuverya-dot/shortener/internal/service"
 	"github.com/vancuverya-dot/shortener/internal/storage"
 )
@@ -24,6 +25,7 @@ var (
 	_writeToDb bool   = false
 	_servPath  string = ""
 	_worker    *service.Worker
+	_audit     = observer.NewSubject()
 )
 
 type UrlRequest struct {
@@ -49,11 +51,18 @@ type UserURLResponse struct {
 	OriginalURL string `json:"original_url"`
 }
 
-func Init(writeToDb bool, servPath string) {
+func Init(writeToDb bool, servPath string, auditFile string, auditURL string) {
 	_writeToDb = writeToDb
 	_servPath = servPath
 	_worker = service.NewWorker(storage.DeleteURLBatch)
 	Urls = make(map[string]string)
+
+	if auditFile != "" {
+		_audit.Subscribe(observer.NewFileObserver(auditFile))
+	}
+	if auditURL != "" {
+		_audit.Subscribe(observer.NewHTTPObserver(auditURL))
+	}
 
 	alphabet := "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz0123456789"
 
@@ -202,6 +211,8 @@ func UrlPost(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "plain/text")
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(_servPath + id.String()))
+
+	notifyAudit(observer.NewEvent(observer.ActionShorten, userID, bodyString))
 }
 
 func UrlPostJson(w http.ResponseWriter, r *http.Request) {
@@ -273,9 +284,12 @@ func UrlPostJson(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
+	notifyAudit(observer.NewEvent(observer.ActionShorten, userID, urlRequest.Url))
+
 }
 
 func UrlGet(w http.ResponseWriter, r *http.Request) {
+	userID := auth.GetUserID(r)
 
 	if _writeToDb {
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
@@ -292,10 +306,13 @@ func UrlGet(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		http.Redirect(w, r, target, http.StatusTemporaryRedirect)
+		notifyAudit(observer.NewEvent(observer.ActionFollow, userID, target))
 		return
 	}
 
-	http.Redirect(w, r, getURL(r.PathValue("id")), http.StatusTemporaryRedirect)
+	target := getURL(r.PathValue("id"))
+	http.Redirect(w, r, target, http.StatusTemporaryRedirect)
+	notifyAudit(observer.NewEvent(observer.ActionFollow, userID, target))
 }
 
 func setURL(short, original string) {
@@ -368,4 +385,10 @@ func UrlDelete(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	w.WriteHeader(http.StatusAccepted)
+}
+
+func notifyAudit(event observer.Event) {
+	for _, err := range _audit.Notify(event) {
+		service.Log.Warnw(err.Error(), "event", "audit notify failed")
+	}
 }
