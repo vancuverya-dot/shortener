@@ -14,6 +14,8 @@ import (
 	"github.com/vancuverya-dot/shortener/internal/handler"
 	"github.com/vancuverya-dot/shortener/internal/service"
 	"github.com/vancuverya-dot/shortener/internal/storage"
+
+	"net/http/pprof"
 )
 
 func main() {
@@ -48,6 +50,19 @@ func main() {
 		service.Log.Warnf(err.Error(), "event", "deserialize file")
 		handler.Urls = make(map[string]string)
 	}
+
+	debugMux := http.NewServeMux()
+	debugMux.HandleFunc("/debug/pprof/", pprof.Index)
+	debugMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	debugMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	debugMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	debugMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+
+	go func() {
+		if err := http.ListenAndServe("localhost:8081", debugMux); err != nil && err != http.ErrServerClosed {
+			service.Log.Errorw(err.Error(), "event", "pprof server failed")
+		}
+	}()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
