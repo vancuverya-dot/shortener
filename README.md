@@ -1,6 +1,24 @@
 # Профилирование и оптимизация производительности
 
-Команда сравнения профилей до и после оптимизации:
+## Что было найдено
+
+Профиль снимался под нагрузкой `hey` (3000 запросов, 30 конкурентных соединений) на эндпоинты `POST /` и `GET /{id}` с реальной PostgreSQL.
+
+Анализ `go tool pprof -alloc_space` базового профиля показал две проблемы:
+
+**1. `GzipMiddleware` — 95.57% всех аллокаций памяти**
+
+`compress/flate.NewWriter` и `compress/flate.(*compressor).initDeflate` суммарно занимали почти весь объём аллокаций. Причина: `GzipMiddleware` создавала новый `gzip.Writer` на каждый HTTP-запрос. `gzip.NewWriter` аллоцирует внутренние буферы сжатия (LZ77-окно, таблицы Хаффмана) — дорогая операция при высокой частоте запросов.
+
+**Исправление:** `sync.Pool` для `*gzip.Writer` и `*gzip.Reader` — объекты переиспользуются через `Reset()`, буферы не пересоздаются (`cmd/shortener/compress.go`).
+
+**2. `storage.InsertURL` — 27.96% всех аллокаций объектов**
+
+Функция выполняла два последовательных запроса к БД на каждую вставку: сначала `UPDATE ... RETURNING` (попытка восстановить удалённый URL), и только при неудаче — `INSERT`. В обычном случае (новый URL) первый запрос был всегда лишним, что удваивало нагрузку на сетевой протокол PostgreSQL (буферы, контекст-вотчер, парсинг ответа).
+
+**Исправление:** единый `INSERT ... ON CONFLICT (urls_original_url) DO UPDATE ... RETURNING urls_short_url, (xmax = 0) AS inserted` — один запрос покрывает все случаи. Системный столбец `xmax = 0` позволяет отличить вставку от обновления без дополнительного запроса (`internal/storage/urlsq.go`).
+
+## Результат
 
 ```
 go tool pprof -top -alloc_space -diff_base=profiles/base.pprof profiles/result.pprof
@@ -15,24 +33,6 @@ Showing nodes accounting for -2362.44MB, 95.97% of 2461.73MB total
   -15.03MB  0.61% 95.87%   -15.03MB  0.61%  sync.(*Pool).pinSlow
       -3MB  0.12% 95.99% -2396.94MB 97.37%  main.GzipMiddleware.func1
     0.50MB  0.02% 95.97%   -35.53MB  1.44%  main.Logging.func1
-         0     0% 95.97%   -22.55MB  0.92%  compress/flate.(*Writer).Close (inline)
-         0     0% 95.97%   -22.55MB  0.92%  compress/flate.(*compressor).close
-         0     0% 95.97%   -22.55MB  0.92%  compress/flate.(*compressor).deflate
-         0     0% 95.97%  -426.95MB 17.34%  compress/flate.(*compressor).init
-         0     0% 95.97%   -22.55MB  0.92%  compress/flate.(*compressor).writeBlock
-         0     0% 95.97%   -15.53MB  0.63%  compress/flate.(*huffmanBitWriter).indexTokens
-         0     0% 95.97%   -22.55MB  0.92%  compress/flate.(*huffmanBitWriter).writeBlock
-         0     0% 95.97%   -22.55MB  0.92%  compress/gzip.(*Writer).Close
-         0     0% 95.97% -2334.37MB 94.83%  compress/gzip.(*Writer).Write
-         0     0% 95.97% -2400.95MB 97.53%  github.com/go-chi/chi/v5.(*Mux).ServeHTTP
-         0     0% 95.97%   -20.51MB  0.83%  github.com/go-chi/chi/v5.(*Mux).routeHTTP
-         0     0% 95.97%   -15.52MB  0.63%  go.uber.org/zap.(*SugaredLogger).Infoln
-         0     0% 95.97%   -15.52MB  0.63%  go.uber.org/zap.(*SugaredLogger).logln
-         0     0% 95.97% -2416.96MB 98.18%  net/http.(*conn).serve
-         0     0% 95.97% -2396.94MB 97.37%  net/http.HandlerFunc.ServeHTTP
-         0     0% 95.97% -2400.95MB 97.53%  net/http.serverHandler.ServeHTTP
-         0     0% 95.97%   -19.03MB  0.77%  sync.(*Pool).Get
-         0     0% 95.97%   -15.03MB  0.61%  sync.(*Pool).pin
 ```
 
 ```

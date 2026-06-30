@@ -6,20 +6,29 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var dbConn *pgxpool.Pool
+// DB инкапсулирует пул соединений к PostgreSQL.
+// Создаётся через New и закрывается методом Close при завершении программы.
+type DB struct {
+	pool *pgxpool.Pool
+}
 
-func InitDB(conn string) (*pgxpool.Pool, error) {
-
-	var err error
-	dbConn, err = pgxpool.New(context.Background(), conn)
+// New создаёт новый пул соединений к PostgreSQL по указанному DSN.
+func New(ctx context.Context, dsn string) (*DB, error) {
+	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		return nil, err
 	}
-	return dbConn, nil
+	return &DB{pool: pool}, nil
 }
 
-func CloseDB() {
-	if dbConn != nil {
-		dbConn.Close()
+// Pool возвращает пул соединений для передачи в storage.Init.
+func (d *DB) Pool() *pgxpool.Pool {
+	return d.pool
+}
+
+// Close закрывает пул соединений. Должен вызываться при завершении программы.
+func (d *DB) Close() {
+	if d.pool != nil {
+		d.pool.Close()
 	}
 }

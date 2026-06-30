@@ -1,11 +1,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -21,6 +21,7 @@ import (
 // бенчмарк, требующий БД, пропускается (b.Skip) — это позволяет гонять
 // `go test -bench` локально без БД без падения сборки.
 func benchDSN(b *testing.B) string {
+	b.Helper()
 	dsn := os.Getenv("DATABASE_DSN")
 	if dsn == "" {
 		b.Skip("DATABASE_DSN is not set, skipping DB-backed benchmark")
@@ -42,7 +43,7 @@ func BenchmarkNanoIDGenerate(b *testing.B) {
 	}
 
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := gen.New(); err != nil {
 			b.Fatal(err)
 		}
@@ -55,20 +56,19 @@ func BenchmarkNanoIDGenerate(b *testing.B) {
 func setupHandlerWithDB(b *testing.B, dsn string) http.Handler {
 	b.Helper()
 
-	pool, err := db.InitDB(dsn)
+	database, err := db.New(context.Background(), dsn)
 	if err != nil {
 		b.Fatalf("connect to db: %v", err)
 	}
 	b.Cleanup(func() {
-		db.CloseDB()
+		database.Close()
 	})
-
-	storage.Init(pool)
-	handler.Init(true, "http://localhost:8080/", "", "")
+	storage.Init(database.Pool())
+	svc := handler.New(true, "http://localhost:8080/", "", "")
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /", handler.UrlPost)
-	mux.HandleFunc("GET /{id}", handler.UrlGet)
+	mux.HandleFunc("POST /", svc.UrlPost)
+	mux.HandleFunc("GET /{id}", svc.UrlGet)
 	return mux
 }
 
@@ -81,12 +81,16 @@ func BenchmarkUrlPost(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	var i int
+	for b.Loop() {
+		b.StopTimer()
 		body := fmt.Sprintf("https://example.com/bench/%d", i)
+		i++
 		req := httptest.NewRequest(http.MethodPost, "http://localhost:8080/", strings.NewReader(body))
 		req.Header.Set("Content-Type", "text/plain")
-
 		w := httptest.NewRecorder()
+		b.StartTimer()
+
 		mux.ServeHTTP(w, req)
 
 		if w.Code != http.StatusCreated {
@@ -126,15 +130,19 @@ func BenchmarkUrlGet(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	var i int
+	for b.Loop() {
+		b.StopTimer()
 		id := ids[i%len(ids)]
+		i++
 		req := httptest.NewRequest(http.MethodGet, "http://localhost:8080/"+id, nil)
-
 		w := httptest.NewRecorder()
+		b.StartTimer()
+
 		mux.ServeHTTP(w, req)
 
 		if w.Code != http.StatusTemporaryRedirect {
-			b.Fatalf("unexpected status: %d for id %s (iter %s)", w.Code, id, strconv.Itoa(i))
+			b.Fatalf("unexpected status: %d for id %s (iter %d)", w.Code, id, i)
 		}
 	}
 }

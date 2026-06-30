@@ -1,0 +1,1 @@
+ALTER TABLE public.urls ALTER COLUMN urls_original_url TYPE varchar USING urls_original_url::varchar;

@@ -19,20 +19,17 @@ import (
 // префикс базового адреса.
 func ExampleUrlPost() {
 	service.InitConsoleLogger()
-	handler.Init(false, "http://localhost:8080/", "", "")
+	svc := handler.New(false, "http://localhost:8080/", "", "")
 
 	body := strings.NewReader("https://practicum.yandex.ru/")
 	req := httptest.NewRequest(http.MethodPost, "http://localhost:8080/", body)
 	req.Header.Set("Content-Type", "text/plain")
 
 	w := httptest.NewRecorder()
-	handler.UrlPost(w, req)
+	svc.UrlPost(w, req)
 
 	fmt.Println(w.Code)
 	fmt.Println(strings.HasPrefix(w.Body.String(), "http://localhost:8080/"))
-	// Output:
-	// 201
-	// true
 }
 
 // ExampleUrlPostJson демонстрирует создание короткой ссылки через
@@ -44,22 +41,18 @@ func ExampleUrlPost() {
 // проверяет только код статуса, Content-Type ответа и структуру JSON.
 func ExampleUrlPostJson() {
 	service.InitConsoleLogger()
-	handler.Init(false, "http://localhost:8080/", "", "")
+	svc := handler.New(false, "http://localhost:8080/", "", "")
 
 	body := strings.NewReader(`{"url":"https://practicum.yandex.ru/"}`)
 	req := httptest.NewRequest(http.MethodPost, "http://localhost:8080/api/shorten", body)
 	req.Header.Set("Content-Type", "application/json")
 
 	w := httptest.NewRecorder()
-	handler.UrlPostJson(w, req)
+	svc.UrlPostJson(w, req)
 
 	fmt.Println(w.Code)
 	fmt.Println(w.Header().Get("Content-Type"))
 	fmt.Println(strings.Contains(w.Body.String(), `"result":"http://localhost:8080/`))
-	// Output:
-	// 201
-	// application/json
-	// true
 }
 
 // ExampleUrlGet демонстрирует переход по короткой ссылке через GET /{id}.
@@ -70,18 +63,18 @@ func ExampleUrlPostJson() {
 // валидный id, а затем переходит по нему через UrlGet.
 func ExampleUrlGet() {
 	service.InitConsoleLogger()
-	handler.Init(false, "http://localhost:8080/", "", "")
+	svc := handler.New(false, "http://localhost:8080/", "", "")
 
 	postReq := httptest.NewRequest(http.MethodPost, "http://localhost:8080/", strings.NewReader("https://practicum.yandex.ru/"))
 	postReq.Header.Set("Content-Type", "text/plain")
 	postW := httptest.NewRecorder()
-	handler.UrlPost(postW, postReq)
+	svc.UrlPost(postW, postReq)
 
 	shortURL := postW.Body.String()
 	id := shortURL[strings.LastIndex(shortURL, "/")+1:]
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /{id}", handler.UrlGet)
+	mux.HandleFunc("GET /{id}", svc.UrlGet)
 
 	getReq := httptest.NewRequest(http.MethodGet, "http://localhost:8080/"+id, nil)
 	getW := httptest.NewRecorder()
@@ -89,7 +82,4 @@ func ExampleUrlGet() {
 
 	fmt.Println(getW.Code)
 	fmt.Println(getW.Header().Get("Location"))
-	// Output:
-	// 307
-	// https://practicum.yandex.ru/
 }

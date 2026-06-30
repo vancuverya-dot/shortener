@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vancuverya-dot/shortener/internal/config"
 	"github.com/vancuverya-dot/shortener/internal/config/db"
 	"github.com/vancuverya-dot/shortener/internal/handler"
@@ -24,7 +23,7 @@ func main() {
 
 	var writeToDb bool = len(serverConfig.DatabaseDSN) > 0
 
-	handler.Init(writeToDb, "http://"+serverConfig.ServerAddress+"/", serverConfig.AuditFile, serverConfig.AuditUrl)
+	svc := handler.New(writeToDb, "http://"+serverConfig.ServerAddress+"/", serverConfig.AuditFile, serverConfig.AuditUrl)
 	service.InitConsoleLogger()
 	defer service.SyncConsoleLogger()
 
@@ -36,20 +35,20 @@ func main() {
 			service.Log.Errorw(err.Error(), "event", "migrate")
 		}
 
-		var dbConn *pgxpool.Pool
-		dbConn, err = db.InitDB(serverConfig.DatabaseDSN)
+		database, err := db.New(context.Background(), serverConfig.DatabaseDSN)
 		if err != nil {
 			service.Log.Errorw(err.Error(), "event", "init db")
 		}
-		storage.Init(dbConn)
-		defer db.CloseDB()
+		storage.Init(database.Pool())
+		defer database.Close()
 	}
 
-	handler.Urls, err = DeserializeFromFile(serverConfig.FileStorage)
+	urls, err := DeserializeFromFile(serverConfig.FileStorage)
 	if err != nil {
 		service.Log.Warnf(err.Error(), "event", "deserialize file")
-		handler.Urls = make(map[string]string)
+		urls = make(map[string]string)
 	}
+	svc.LoadURLs(urls)
 
 	debugMux := http.NewServeMux()
 	debugMux.HandleFunc("/debug/pprof/", pprof.Index)
@@ -71,13 +70,13 @@ func main() {
 
 	r.Use(GzipMiddleware)
 	r.Use(Logging)
-	r.Get("/ping", handler.PingDB)
-	r.Post("/", handler.UrlPost)
-	r.Get("/{id}", handler.UrlGet)
-	r.Post("/api/shorten/batch", handler.UrlPostBatch)
-	r.Post("/api/shorten", handler.UrlPostJson)
-	r.Get("/api/user/urls", handler.GetURLsByUser)
-	r.Delete("/api/user/urls", handler.UrlDelete)
+	r.Get("/ping", svc.PingDB)
+	r.Post("/", svc.UrlPost)
+	r.Get("/{id}", svc.UrlGet)
+	r.Post("/api/shorten/batch", svc.UrlPostBatch)
+	r.Post("/api/shorten", svc.UrlPostJson)
+	r.Get("/api/user/urls", svc.GetURLsByUser)
+	r.Delete("/api/user/urls", svc.UrlDelete)
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not_allowed", http.StatusBadRequest)
@@ -111,8 +110,10 @@ func main() {
 		service.Log.Errorw(err.Error(), "event", "server shutdown")
 	}
 
+	svc.Stop()
+
 	if !writeToDb {
-		SerializeToFile(serverConfig.FileStorage, handler.Urls)
+		SerializeToFile(serverConfig.FileStorage, svc.DumpURLs())
 	}
 
 }

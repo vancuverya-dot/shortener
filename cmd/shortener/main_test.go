@@ -10,11 +10,11 @@ import (
 )
 
 func TestRoutes(t *testing.T) {
-	handler.Init(false, "http://localhost:8080/", "", "")
+	svc := handler.New(false, "http://localhost:8080/", "", "")
 
 	mux := http.NewServeMux()
-	mux.HandleFunc(`POST /`, handler.UrlPost)
-	mux.HandleFunc("GET /{id}", handler.UrlGet)
+	mux.HandleFunc(`POST /`, svc.UrlPost)
+	mux.HandleFunc("GET /{id}", svc.UrlGet)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not_allowed", http.StatusBadRequest)
 	})

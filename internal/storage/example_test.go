@@ -2,6 +2,7 @@ package storage_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -76,7 +77,7 @@ func ExampleInsertURL() {
 	switch {
 	case err == nil:
 		fmt.Println("created:", shortURL)
-	case err == storage.ErrConflict:
+	case errors.Is(err, storage.ErrConflict):
 		fmt.Println("already exists, short URL is:", shortURL)
 	default:
 		fmt.Println("insert failed")
