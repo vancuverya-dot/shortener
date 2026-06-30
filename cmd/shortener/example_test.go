@@ -17,7 +17,7 @@ import (
 // Сам идентификатор генерируется случайно при каждом вызове, поэтому
 // в примере проверяется только код статуса и неизменная часть ответа —
 // префикс базового адреса.
-func ExampleUrlPost() {
+func ExampleUrlsService_UrlPost() {
 	service.InitConsoleLogger()
 	svc := handler.New(false, "http://localhost:8080/", "", "")
 
@@ -39,7 +39,7 @@ func ExampleUrlPost() {
 //
 // Как и в ExampleUrlPost, сам идентификатор случаен, поэтому пример
 // проверяет только код статуса, Content-Type ответа и структуру JSON.
-func ExampleUrlPostJson() {
+func ExampleUrlsService_UrlPostJson() {
 	service.InitConsoleLogger()
 	svc := handler.New(false, "http://localhost:8080/", "", "")
 
@@ -61,7 +61,7 @@ func ExampleUrlPostJson() {
 //
 // Пример сначала создаёт короткую ссылку через UrlPost, чтобы получить
 // валидный id, а затем переходит по нему через UrlGet.
-func ExampleUrlGet() {
+func ExampleUrlsService_UrlGet() {
 	service.InitConsoleLogger()
 	svc := handler.New(false, "http://localhost:8080/", "", "")
 
