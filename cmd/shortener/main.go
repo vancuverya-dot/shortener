@@ -19,15 +19,22 @@ import (
 
 func main() {
 
-	serverConfig := config.LoadServerConfig()
+	var err error
+
+	serverConfig, err := config.LoadServerConfig()
+	if err != nil {
+		service.Log.Fatalf("загрузка конфигурации: %v", err)
+	}
 
 	var writeToDb bool = len(serverConfig.DatabaseDSN) > 0
 
-	svc := handler.New(writeToDb, "http://"+serverConfig.ServerAddress+"/", serverConfig.AuditFile, serverConfig.AuditUrl)
+	svc, err := handler.New(writeToDb, "http://"+serverConfig.ServerAddress+"/", serverConfig.AuditFile, serverConfig.AuditUrl)
+	if err != nil {
+		service.Log.Fatalf("инициализация хэндлеров: %v", err)
+	}
+
 	service.InitConsoleLogger()
 	defer service.SyncConsoleLogger()
-
-	var err error
 
 	if writeToDb {
 		err = migration(serverConfig.DatabaseDSN)

@@ -2,7 +2,7 @@ package config
 
 import (
 	"flag"
-	"log"
+	"fmt"
 )
 
 type serverConfig struct {
@@ -14,7 +14,7 @@ type serverConfig struct {
 	AuditUrl      string
 }
 
-func LoadServerConfig() *serverConfig {
+func LoadServerConfig() (*serverConfig, error) {
 
 	var flagRunAddr string
 	var baseUrlAddr string
@@ -25,7 +25,7 @@ func LoadServerConfig() *serverConfig {
 
 	envConfig, err := loadEnv()
 	if err != nil {
-		log.Fatalf("ошибка загрузки переменных окружения: %v", err)
+		return nil, fmt.Errorf("error while loading environment variables: %w", err)
 	}
 
 	flag.StringVar(&flagRunAddr, "a", "localhost:8080", "address and port to run server")
@@ -71,6 +71,6 @@ func LoadServerConfig() *serverConfig {
 		DatabaseDSN:   databaseDsn,
 		AuditFile:     auditFile,
 		AuditUrl:      auditUrl,
-	}
+	}, nil
 
 }

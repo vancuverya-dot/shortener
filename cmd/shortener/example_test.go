@@ -19,7 +19,11 @@ import (
 // префикс базового адреса.
 func ExampleUrlsService_UrlPost() {
 	service.InitConsoleLogger()
-	svc := handler.New(false, "http://localhost:8080/", "", "")
+	svc, err := handler.New(false, "http://localhost:8080/", "", "")
+	if err != nil {
+		fmt.Println("init failed")
+		return
+	}
 
 	body := strings.NewReader("https://practicum.yandex.ru/")
 	req := httptest.NewRequest(http.MethodPost, "http://localhost:8080/", body)
@@ -41,7 +45,11 @@ func ExampleUrlsService_UrlPost() {
 // проверяет только код статуса, Content-Type ответа и структуру JSON.
 func ExampleUrlsService_UrlPostJson() {
 	service.InitConsoleLogger()
-	svc := handler.New(false, "http://localhost:8080/", "", "")
+	svc, err := handler.New(false, "http://localhost:8080/", "", "")
+	if err != nil {
+		fmt.Println("init failed")
+		return
+	}
 
 	body := strings.NewReader(`{"url":"https://practicum.yandex.ru/"}`)
 	req := httptest.NewRequest(http.MethodPost, "http://localhost:8080/api/shorten", body)
@@ -63,7 +71,11 @@ func ExampleUrlsService_UrlPostJson() {
 // валидный id, а затем переходит по нему через UrlGet.
 func ExampleUrlsService_UrlGet() {
 	service.InitConsoleLogger()
-	svc := handler.New(false, "http://localhost:8080/", "", "")
+	svc, err := handler.New(false, "http://localhost:8080/", "", "")
+	if err != nil {
+		fmt.Println("init failed")
+		return
+	}
 
 	postReq := httptest.NewRequest(http.MethodPost, "http://localhost:8080/", strings.NewReader("https://practicum.yandex.ru/"))
 	postReq.Header.Set("Content-Type", "text/plain")

@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -29,7 +30,8 @@ type UrlsService struct {
 	fileObserver *observer.FileObserver
 }
 
-func New(writeToDB bool, servPath string, auditFile string, auditURL string) *UrlsService {
+func New(writeToDB bool, servPath string, auditFile string, auditURL string) (*UrlsService, error) {
+
 	s := &UrlsService{
 		urls:      make(map[string]string),
 		writeToDB: writeToDB,
@@ -62,11 +64,11 @@ func New(writeToDB bool, servPath string, auditFile string, auditURL string) *Ur
 		nanoid.WithLengthHint(10),
 	)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("создание генератора идентификаторов: %w", err)
 	}
 	s.gen = gen
 
-	return s
+	return s, nil
 }
 
 func (s *UrlsService) LoadURLs(urls map[string]string) {

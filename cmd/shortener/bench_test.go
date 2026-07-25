@@ -64,7 +64,10 @@ func setupHandlerWithDB(b *testing.B, dsn string) http.Handler {
 		database.Close()
 	})
 	storage.Init(database.Pool())
-	svc := handler.New(true, "http://localhost:8080/", "", "")
+	svc, err := handler.New(true, "http://localhost:8080/", "", "")
+	if err != nil {
+		b.Fatal(err)
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /", svc.UrlPost)
