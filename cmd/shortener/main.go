@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,7 +18,30 @@ import (
 	"net/http/pprof"
 )
 
+// Значения устанавливаются при сборке через -ldflags -X.
+var (
+	buildVersion string
+	buildDate    string
+	buildCommit  string
+)
+
+// printBuildInfo выводит информацию о сборке в stdout.
+// Незаполненные значения заменяются на "N/A".
+func buildInfo() {
+	fmt.Printf("Build version: %s\n", orNA(buildVersion))
+	fmt.Printf("Build date: %s\n", orNA(buildDate))
+	fmt.Printf("Build commit: %s\n", orNA(buildCommit))
+}
+
+func orNA(s string) string {
+	if s == "" {
+		return "N/A"
+	}
+	return s
+}
+
 func main() {
+	buildInfo()
 
 	var err error
 
