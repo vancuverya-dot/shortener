@@ -41,9 +41,10 @@ func orNA(s string) string {
 }
 
 func main() {
-	buildInfo()
+	service.InitConsoleLogger()
+	defer service.SyncConsoleLogger()
 
-	var err error
+	buildInfo()
 
 	serverConfig, err := config.LoadServerConfig()
 	if err != nil {
@@ -56,9 +57,6 @@ func main() {
 	if err != nil {
 		service.Log.Fatalf("инициализация хэндлеров: %v", err)
 	}
-
-	service.InitConsoleLogger()
-	defer service.SyncConsoleLogger()
 
 	if writeToDb {
 		err = migration(serverConfig.DatabaseDSN)
@@ -102,12 +100,12 @@ func main() {
 	r.Use(GzipMiddleware)
 	r.Use(Logging)
 	r.Get("/ping", svc.PingDB)
-	r.Post("/", svc.UrlPost)
-	r.Get("/{id}", svc.UrlGet)
-	r.Post("/api/shorten/batch", svc.UrlPostBatch)
-	r.Post("/api/shorten", svc.UrlPostJson)
+	r.Post("/", svc.URLPost)
+	r.Get("/{id}", svc.URLGet)
+	r.Post("/api/shorten/batch", svc.URLPostBatch)
+	r.Post("/api/shorten", svc.URLPostJSON)
 	r.Get("/api/user/urls", svc.GetURLsByUser)
-	r.Delete("/api/user/urls", svc.UrlDelete)
+	r.Delete("/api/user/urls", svc.URLDelete)
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not_allowed", http.StatusBadRequest)

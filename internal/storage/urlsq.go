@@ -14,6 +14,7 @@ package storage
 import (
 	"context"
 	"errors"
+	"sync"
 
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
@@ -25,7 +26,10 @@ import (
 // пакета. Устанавливается вызовом Init и не защищён мьютексом: предполагается,
 // что Init вызывается один раз при старте приложения, до начала конкурентного
 // доступа к остальным функциям пакета.
-var _dbConn *pgxpool.Pool
+var (
+	_dbConn  *pgxpool.Pool
+	initOnce sync.Once
+)
 
 // Init инициализирует пакет переданным пулом соединений к PostgreSQL.
 //
@@ -33,7 +37,9 @@ var _dbConn *pgxpool.Pool
 // вызовов функций пакета storage. Повторный вызов перезапишет текущий
 // пул соединений.
 func Init(dbConn *pgxpool.Pool) {
-	_dbConn = dbConn
+	initOnce.Do(func() {
+		_dbConn = dbConn
+	})
 }
 
 // PingDB проверяет доступность базы данных.

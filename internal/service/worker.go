@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"sync"
 )
 
 type DeleteTask struct {
@@ -12,6 +13,7 @@ type DeleteTask struct {
 type Worker struct {
 	tasks  chan DeleteTask
 	done   chan struct{}
+	wg     sync.WaitGroup
 	delete func(ctx context.Context, shortURLs []string, userID string) error
 }
 
@@ -21,6 +23,7 @@ func NewWorker(deleteFunc func(ctx context.Context, shortURLs []string, userID s
 		done:   make(chan struct{}),
 		delete: deleteFunc,
 	}
+	w.wg.Add(1)
 	go w.run()
 	return w
 }
@@ -31,9 +34,12 @@ func (w *Worker) Add(task DeleteTask) {
 
 func (w *Worker) Stop() {
 	close(w.done)
+	w.wg.Wait()
 }
 
 func (w *Worker) run() {
+	defer w.wg.Done()
+
 	for {
 		select {
 		case <-w.done:

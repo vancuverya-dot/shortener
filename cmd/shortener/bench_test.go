@@ -70,8 +70,8 @@ func setupHandlerWithDB(b *testing.B, dsn string) http.Handler {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /", svc.UrlPost)
-	mux.HandleFunc("GET /{id}", svc.UrlGet)
+	mux.HandleFunc("POST /", svc.URLPost)
+	mux.HandleFunc("GET /{id}", svc.URLGet)
 	return mux
 }
 

@@ -137,24 +137,3 @@ func (rec *responseWriter) WriteHeader(statusCode int) {
 func (rec *responseWriter) Write(b []byte) (int, error) {
 	return rec.body.Write(b)
 }
-
-// gzipReader оборачивает gzip.Reader вместе с исходным io.ReadCloser тела
-// запроса, чтобы при закрытии корректно закрывались оба ресурса.
-type gzipReader struct {
-	*gzip.Reader
-	io.ReadCloser
-}
-
-// Read читает декомпрессированные данные из вложенного gzip.Reader.
-func (gz *gzipReader) Read(p []byte) (n int, err error) {
-	return gz.Reader.Read(p)
-}
-
-// Close закрывает gzip.Reader, а затем исходный io.ReadCloser тела запроса.
-// Возвращает первую встреченную ошибку.
-func (gz *gzipReader) Close() error {
-	if err := gz.Reader.Close(); err != nil {
-		return err
-	}
-	return gz.ReadCloser.Close()
-}

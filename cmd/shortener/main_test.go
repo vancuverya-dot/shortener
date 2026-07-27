@@ -16,8 +16,8 @@ func TestRoutes(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc(`POST /`, svc.UrlPost)
-	mux.HandleFunc("GET /{id}", svc.UrlGet)
+	mux.HandleFunc(`POST /`, svc.URLPost)
+	mux.HandleFunc("GET /{id}", svc.URLGet)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not_allowed", http.StatusBadRequest)
 	})

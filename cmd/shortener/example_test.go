@@ -30,7 +30,7 @@ func ExampleUrlsService_UrlPost() {
 	req.Header.Set("Content-Type", "text/plain")
 
 	w := httptest.NewRecorder()
-	svc.UrlPost(w, req)
+	svc.URLPost(w, req)
 
 	fmt.Println(w.Code)
 	fmt.Println(strings.HasPrefix(w.Body.String(), "http://localhost:8080/"))
@@ -56,7 +56,7 @@ func ExampleUrlsService_UrlPostJson() {
 	req.Header.Set("Content-Type", "application/json")
 
 	w := httptest.NewRecorder()
-	svc.UrlPostJson(w, req)
+	svc.URLPostJSON(w, req)
 
 	fmt.Println(w.Code)
 	fmt.Println(w.Header().Get("Content-Type"))
@@ -80,13 +80,13 @@ func ExampleUrlsService_UrlGet() {
 	postReq := httptest.NewRequest(http.MethodPost, "http://localhost:8080/", strings.NewReader("https://practicum.yandex.ru/"))
 	postReq.Header.Set("Content-Type", "text/plain")
 	postW := httptest.NewRecorder()
-	svc.UrlPost(postW, postReq)
+	svc.URLPost(postW, postReq)
 
 	shortURL := postW.Body.String()
 	id := shortURL[strings.LastIndex(shortURL, "/")+1:]
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /{id}", svc.UrlGet)
+	mux.HandleFunc("GET /{id}", svc.URLGet)
 
 	getReq := httptest.NewRequest(http.MethodGet, "http://localhost:8080/"+id, nil)
 	getW := httptest.NewRecorder()

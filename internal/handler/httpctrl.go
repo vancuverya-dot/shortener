@@ -19,7 +19,7 @@ import (
 	"github.com/vancuverya-dot/shortener/internal/storage"
 )
 
-type UrlsService struct {
+type URLsService struct {
 	urls         map[string]string
 	urlsMu       sync.RWMutex
 	gen          nanoid.Interface
@@ -30,9 +30,9 @@ type UrlsService struct {
 	fileObserver *observer.FileObserver
 }
 
-func New(writeToDB bool, servPath string, auditFile string, auditURL string) (*UrlsService, error) {
+func New(writeToDB bool, servPath string, auditFile string, auditURL string) (*URLsService, error) {
 
-	s := &UrlsService{
+	s := &URLsService{
 		urls:      make(map[string]string),
 		writeToDB: writeToDB,
 		servPath:  servPath,
@@ -71,13 +71,13 @@ func New(writeToDB bool, servPath string, auditFile string, auditURL string) (*U
 	return s, nil
 }
 
-func (s *UrlsService) LoadURLs(urls map[string]string) {
+func (s *URLsService) LoadURLs(urls map[string]string) {
 	s.urlsMu.Lock()
 	defer s.urlsMu.Unlock()
 	s.urls = urls
 }
 
-func (s *UrlsService) DumpURLs() map[string]string {
+func (s *URLsService) DumpURLs() map[string]string {
 	s.urlsMu.RLock()
 	defer s.urlsMu.RUnlock()
 
@@ -88,11 +88,11 @@ func (s *UrlsService) DumpURLs() map[string]string {
 	return dump
 }
 
-type UrlRequest struct {
-	Url string `json:"url"`
+type URLRequest struct {
+	URL string `json:"url"`
 }
 
-type UrlResponse struct {
+type URLResponse struct {
 	Result string `json:"result"`
 }
 
@@ -111,7 +111,7 @@ type UserURLResponse struct {
 	OriginalURL string `json:"original_url"`
 }
 
-func (s *UrlsService) UrlPostBatch(w http.ResponseWriter, r *http.Request) {
+func (s *URLsService) URLPostBatch(w http.ResponseWriter, r *http.Request) {
 	var requests []BatchRequest
 
 	if !strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "application/json") {
@@ -179,7 +179,7 @@ func (s *UrlsService) UrlPostBatch(w http.ResponseWriter, r *http.Request) {
 	w.Write(body)
 }
 
-func (s *UrlsService) PingDB(w http.ResponseWriter, r *http.Request) {
+func (s *URLsService) PingDB(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
@@ -194,7 +194,7 @@ func (s *UrlsService) PingDB(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *UrlsService) UrlPost(w http.ResponseWriter, r *http.Request) {
+func (s *URLsService) URLPost(w http.ResponseWriter, r *http.Request) {
 
 	if !strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "text/plain") {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
@@ -249,7 +249,7 @@ func (s *UrlsService) UrlPost(w http.ResponseWriter, r *http.Request) {
 	s.notifyAudit(observer.NewEvent(observer.ActionShorten, userID, bodyString))
 }
 
-func (s *UrlsService) UrlPostJson(w http.ResponseWriter, r *http.Request) {
+func (s *URLsService) URLPostJSON(w http.ResponseWriter, r *http.Request) {
 
 	if !strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "application/json") &&
 		!strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "text/plain") {
@@ -259,7 +259,7 @@ func (s *UrlsService) UrlPostJson(w http.ResponseWriter, r *http.Request) {
 
 	defer r.Body.Close()
 
-	var urlRequest UrlRequest
+	var urlRequest URLRequest
 
 	err := json.NewDecoder(r.Body).Decode(&urlRequest)
 
@@ -274,7 +274,7 @@ func (s *UrlsService) UrlPostJson(w http.ResponseWriter, r *http.Request) {
 		service.Log.Errorw(err.Error(), "event", "shortener - Error getting or creating user ID")
 	}
 
-	service.Log.Infof("Received URL: %s", urlRequest.Url)
+	service.Log.Infof("Received URL: %s", urlRequest.URL)
 
 	id, err := s.gen.New()
 
@@ -287,13 +287,13 @@ func (s *UrlsService) UrlPostJson(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 
-		shortURL, err := storage.InsertURL(ctx, id.String(), urlRequest.Url, userID)
+		shortURL, err := storage.InsertURL(ctx, id.String(), urlRequest.URL, userID)
 		if err != nil {
 			if errors.Is(err, storage.ErrConflict) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusConflict)
 
-				body, _ := json.Marshal(UrlResponse{
+				body, _ := json.Marshal(URLResponse{
 					Result: s.servPath + shortURL,
 				})
 				w.Write(body)
@@ -303,13 +303,13 @@ func (s *UrlsService) UrlPostJson(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		s.setURL(id.String(), urlRequest.Url)
+		s.setURL(id.String(), urlRequest.URL)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 
-	urlResonse := UrlResponse{
+	urlResonse := URLResponse{
 		Result: s.servPath + id.String(),
 	}
 
@@ -318,10 +318,10 @@ func (s *UrlsService) UrlPostJson(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
-	s.notifyAudit(observer.NewEvent(observer.ActionShorten, userID, urlRequest.Url))
+	s.notifyAudit(observer.NewEvent(observer.ActionShorten, userID, urlRequest.URL))
 }
 
-func (s *UrlsService) UrlGet(w http.ResponseWriter, r *http.Request) {
+func (s *URLsService) URLGet(w http.ResponseWriter, r *http.Request) {
 	userID := auth.GetUserID(r)
 
 	if s.writeToDB {
@@ -348,20 +348,20 @@ func (s *UrlsService) UrlGet(w http.ResponseWriter, r *http.Request) {
 	s.notifyAudit(observer.NewEvent(observer.ActionFollow, userID, target))
 }
 
-func (s *UrlsService) setURL(short, original string) {
+func (s *URLsService) setURL(short, original string) {
 	s.urlsMu.Lock()
 	defer s.urlsMu.Unlock()
 	s.urls[short] = original
 }
 
-func (s *UrlsService) getURL(short string) string {
+func (s *URLsService) getURL(short string) string {
 	s.urlsMu.RLock()
 	defer s.urlsMu.RUnlock()
 	v := s.urls[short]
 	return v
 }
 
-func (s *UrlsService) GetURLsByUser(w http.ResponseWriter, r *http.Request) {
+func (s *URLsService) GetURLsByUser(w http.ResponseWriter, r *http.Request) {
 	userID, err := auth.GetOrCreateUserID(w, r)
 	if err != nil {
 		service.Log.Errorw(err.Error(), "event", "shortener - Error getting or creating user ID")
@@ -397,7 +397,7 @@ func (s *UrlsService) GetURLsByUser(w http.ResponseWriter, r *http.Request) {
 	w.Write(body)
 }
 
-func (s *UrlsService) UrlDelete(w http.ResponseWriter, r *http.Request) {
+func (s *URLsService) URLDelete(w http.ResponseWriter, r *http.Request) {
 	userID, err := auth.GetOrCreateUserID(w, r)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
@@ -420,11 +420,11 @@ func (s *UrlsService) UrlDelete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (s *UrlsService) notifyAudit(event observer.Event) {
+func (s *URLsService) notifyAudit(event observer.Event) {
 	s.audit.Notify(event)
 }
 
-func (s *UrlsService) Stop() {
+func (s *URLsService) Stop() {
 	s.audit.Stop()
 	s.worker.Stop()
 	if s.fileObserver != nil {
