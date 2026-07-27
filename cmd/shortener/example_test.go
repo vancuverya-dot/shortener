@@ -10,14 +10,14 @@ import (
 	"github.com/vancuverya-dot/shortener/internal/service"
 )
 
-// ExampleUrlPost демонстрирует создание короткой ссылки через POST / с телом
+// Example_urlPost демонстрирует создание короткой ссылки через POST / с телом
 // в формате text/plain. В случае успеха сервис возвращает код 201 Created
 // и тело ответа в виде полного короткого URL (base_url + сгенерированный id).
 //
 // Сам идентификатор генерируется случайно при каждом вызове, поэтому
 // в примере проверяется только код статуса и неизменная часть ответа —
 // префикс базового адреса.
-func ExampleUrlsService_UrlPost() {
+func Example_urlPost() {
 	service.InitConsoleLogger()
 	svc, err := handler.New(false, "http://localhost:8080/", "", "")
 	if err != nil {
@@ -36,14 +36,14 @@ func ExampleUrlsService_UrlPost() {
 	fmt.Println(strings.HasPrefix(w.Body.String(), "http://localhost:8080/"))
 }
 
-// ExampleUrlPostJson демонстрирует создание короткой ссылки через
+// Example_urlPostJSON демонстрирует создание короткой ссылки через
 // POST /api/shorten с телом в формате JSON {"url": "..."}. В случае успеха
 // сервис возвращает код 201 Created и тело ответа в формате
 // {"result": "<короткий URL>"}.
 //
 // Как и в ExampleUrlPost, сам идентификатор случаен, поэтому пример
 // проверяет только код статуса, Content-Type ответа и структуру JSON.
-func ExampleUrlsService_UrlPostJson() {
+func Example_urlPostJSON() {
 	service.InitConsoleLogger()
 	svc, err := handler.New(false, "http://localhost:8080/", "", "")
 	if err != nil {
@@ -63,13 +63,13 @@ func ExampleUrlsService_UrlPostJson() {
 	fmt.Println(strings.Contains(w.Body.String(), `"result":"http://localhost:8080/`))
 }
 
-// ExampleUrlGet демонстрирует переход по короткой ссылке через GET /{id}.
+// Example_urlGet демонстрирует переход по короткой ссылке через GET /{id}.
 // Сервис отвечает кодом 307 Temporary Redirect с заголовком Location,
 // указывающим на оригинальный URL, под который была создана короткая ссылка.
 //
 // Пример сначала создаёт короткую ссылку через UrlPost, чтобы получить
 // валидный id, а затем переходит по нему через UrlGet.
-func ExampleUrlsService_UrlGet() {
+func Example_urlGet() {
 	service.InitConsoleLogger()
 	svc, err := handler.New(false, "http://localhost:8080/", "", "")
 	if err != nil {
