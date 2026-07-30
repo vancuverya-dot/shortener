@@ -11,6 +11,8 @@ type envConfig struct {
 	DatabaseDSN   string `env:"DATABASE_DSN"`
 	AuditFile     string `env:"AUDIT_FILE"`
 	AuditUrl      string `env:"AUDIT_URL"`
+	EnableHTTPS   *bool  `env:"ENABLE_HTTPS"`
+	Config        string `env:"CONFIG"`
 }
 
 func loadEnv() (*envConfig, error) {

@@ -2,10 +2,11 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
-	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -92,7 +93,7 @@ func main() {
 		}
 	}()
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 	defer stop()
 
 	r := chi.NewRouter()
@@ -116,11 +117,24 @@ func main() {
 		Handler: r,
 	}
 
+	if serverConfig.EnableHTTPS {
+		cert, err := generateSelfSignedCert()
+		if err != nil {
+			service.Log.Fatalf("генерация TLS-сертификата: %v", err)
+		}
+		server.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
+	}
+
 	errCh := make(chan error, 1)
 	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		var err error
+		if serverConfig.EnableHTTPS {
+			err = server.ListenAndServeTLS("", "")
+		} else {
+			err = server.ListenAndServe()
+		}
+		if err != nil && err != http.ErrServerClosed {
 			errCh <- err
-			return
 		}
 	}()
 
@@ -142,7 +156,9 @@ func main() {
 	svc.Stop()
 
 	if !writeToDb {
-		SerializeToFile(serverConfig.FileStorage, svc.DumpURLs())
+		if err := SerializeToFile(serverConfig.FileStorage, svc.DumpURLs()); err != nil {
+			service.Log.Errorw(err.Error(), "event", "serialize file")
+		}
 	}
 
 }
