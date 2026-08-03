@@ -1,0 +1,1 @@
+ALTER TABLE urls ADD CONSTRAINT urls_unique UNIQUE (urls_original_url);

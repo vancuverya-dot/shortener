@@ -1,0 +1,1 @@
+ALTER TABLE public.urls ADD COLUMN IF NOT EXISTS user_id uuid;
