@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -20,17 +21,18 @@ import (
 )
 
 type URLsService struct {
-	urls         map[string]string
-	urlsMu       sync.RWMutex
-	gen          nanoid.Interface
-	writeToDB    bool
-	servPath     string
-	worker       *service.Worker
-	audit        *observer.Subject
-	fileObserver *observer.FileObserver
+	urls          map[string]string
+	urlsMu        sync.RWMutex
+	gen           nanoid.Interface
+	writeToDB     bool
+	servPath      string
+	worker        *service.Worker
+	audit         *observer.Subject
+	fileObserver  *observer.FileObserver
+	trustedSubnet *net.IPNet
 }
 
-func New(writeToDB bool, servPath string, auditFile string, auditURL string) (*URLsService, error) {
+func New(writeToDB bool, servPath string, auditFile string, auditURL string, trustedSubnet string) (*URLsService, error) {
 
 	s := &URLsService{
 		urls:      make(map[string]string),
@@ -38,6 +40,14 @@ func New(writeToDB bool, servPath string, auditFile string, auditURL string) (*U
 		servPath:  servPath,
 		worker:    service.NewWorker(storage.DeleteURLBatch),
 		audit:     observer.NewSubject(),
+	}
+
+	if trustedSubnet != "" {
+		_, subnet, err := net.ParseCIDR(trustedSubnet)
+		if err != nil {
+			return nil, fmt.Errorf("разбор доверенной подсети %q: %w", trustedSubnet, err)
+		}
+		s.trustedSubnet = subnet
 	}
 
 	if auditFile != "" {
@@ -109,6 +119,11 @@ type BatchResponse struct {
 type UserURLResponse struct {
 	ShortURL    string `json:"short_url"`
 	OriginalURL string `json:"original_url"`
+}
+
+type StatsResponse struct {
+	URLs  int `json:"urls"`
+	Users int `json:"users"`
 }
 
 func (s *URLsService) URLPostBatch(w http.ResponseWriter, r *http.Request) {
@@ -433,3 +448,39 @@ func (s *URLsService) Stop() {
 		}
 	}
 }
+
+func (s *URLsService) Stats(w http.ResponseWriter, r *http.Request) {
+	if s.trustedSubnet == nil {
+		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		return
+	}
+
+	ip := net.ParseIP(r.Header.Get("X-Real-IP"))
+	if ip == nil || !s.trustedSubnet.Contains(ip) {
+		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	urls, users, err := storage.GetStats(ctx)
+	if err != nil {
+		service.Log.Errorw(err.Error(), "event", "shortener - Error getting stats")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	body, _ := json.Marshal(StatsResponse{URLs: urls, Users: users})
+	w.Write(body)
+}
+
+// Gen возвращает генератор коротких идентификаторов.
+func (s *URLsService) Gen() nanoid.Interface { return s.gen }
+
+// ServPath возвращает базовый адрес коротких ссылок.
+func (s *URLsService) ServPath() string { return s.servPath }
+
+// Audit возвращает издателя событий аудита.
+func (s *URLsService) Audit() *observer.Subject { return s.audit }
