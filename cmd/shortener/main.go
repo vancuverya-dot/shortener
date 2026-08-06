@@ -172,6 +172,7 @@ func main() {
 		service.Log.Errorw(err.Error(), "event", "server shutdown")
 	}
 
+	grpcServer.GracefulStop()
 	svc.Stop()
 
 	if !writeToDb {
