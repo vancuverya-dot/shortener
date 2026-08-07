@@ -450,14 +450,8 @@ func (s *URLsService) Stop() {
 }
 
 func (s *URLsService) Stats(w http.ResponseWriter, r *http.Request) {
-	if s.trustedSubnet == nil {
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-		return
-	}
-
-	ip := net.ParseIP(r.Header.Get("X-Real-IP"))
-	if ip == nil || !s.trustedSubnet.Contains(ip) {
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+	if !s.writeToDB {
+		http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
 		return
 	}
 
@@ -466,7 +460,7 @@ func (s *URLsService) Stats(w http.ResponseWriter, r *http.Request) {
 
 	urls, users, err := storage.GetStats(ctx)
 	if err != nil {
-		service.Log.Errorw(err.Error(), "event", "shortener - Error getting stats")
+		service.Log.Errorw(err.Error(), "event", "shortener - Error retrieving stats")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}

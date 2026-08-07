@@ -248,9 +248,13 @@ func DeleteURLBatch(ctx context.Context, shortURLs []string, userID string) erro
 // GetStats возвращает количество сокращённых URL и количество
 // пользователей в сервисе. Удалённые URL не учитываются.
 func GetStats(ctx context.Context) (int, int, error) {
+	if _dbConn == nil {
+		return 0, 0, pgx.ErrNoRows
+	}
+
 	var urls, users int
 	err := _dbConn.QueryRow(ctx,
-		`SELECT COUNT(*) cnt_urls, COUNT(DISTINCT user_id) cnt_users FROM public.urls WHERE is_deleted = false`,
+		`SELECT COUNT(*), COUNT(DISTINCT user_id) FROM public.urls WHERE is_deleted = false`,
 	).Scan(&urls, &users)
 	if err != nil {
 		return 0, 0, err

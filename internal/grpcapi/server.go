@@ -12,8 +12,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/sixafter/nanoid"
 	"github.com/vancuverya-dot/shortener/internal/auth"
 	"github.com/vancuverya-dot/shortener/internal/grpcapi/proto"
@@ -97,7 +97,9 @@ func (s *Server) ShortenURL(ctx context.Context, req *proto.URLShortenRequest) (
 
 	s.audit.Notify(observer.NewEvent(observer.ActionShorten, userID, req.GetUrl()))
 
-	return &proto.URLShortenResponse{Result: s.servPath + shortURL}, nil
+	return proto.URLShortenResponse_builder{
+		Result: ptr(s.servPath + shortURL),
+	}.Build(), nil
 }
 
 // ExpandURL возвращает оригинальный URL по короткому идентификатору.
@@ -111,8 +113,13 @@ func (s *Server) ExpandURL(ctx context.Context, req *proto.URLExpandRequest) (*p
 
 	target, isDeleted, err := storage.GetOriginalURL(dbCtx, req.GetId())
 	if err != nil {
-		return nil, status.Error(codes.NotFound, "ссылка не найдена")
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, status.Error(codes.NotFound, "ссылка не найдена")
+		}
+		service.Log.Errorw(err.Error(), "event", "grpc - Error retrieving URL from database")
+		return nil, status.Error(codes.Internal, "внутренняя ошибка сервера")
 	}
+
 	if isDeleted {
 		return nil, status.Error(codes.NotFound, "ссылка удалена")
 	}
@@ -123,11 +130,13 @@ func (s *Server) ExpandURL(ctx context.Context, req *proto.URLExpandRequest) (*p
 	}
 	s.audit.Notify(observer.NewEvent(observer.ActionFollow, userID, target))
 
-	return &proto.URLExpandResponse{Result: target}, nil
+	return proto.URLExpandResponse_builder{
+		Result: ptr(target),
+	}.Build(), nil
 }
 
 // ListUserURLs возвращает все ссылки, созданные текущим пользователем.
-func (s *Server) ListUserURLs(ctx context.Context, _ *emptypb.Empty) (*proto.UserURLsResponse, error) {
+func (s *Server) ListUserURLs(ctx context.Context, _ *proto.UserURLsRequest) (*proto.UserURLsResponse, error) {
 	userID, err := s.userIDFromContext(ctx)
 	if err != nil {
 		return nil, err
@@ -144,11 +153,15 @@ func (s *Server) ListUserURLs(ctx context.Context, _ *emptypb.Empty) (*proto.Use
 
 	items := make([]*proto.URLData, len(shortURLs))
 	for i := range shortURLs {
-		items[i] = &proto.URLData{
-			ShortUrl:    s.servPath + shortURLs[i],
-			OriginalUrl: originalURLs[i],
-		}
+		items[i] = proto.URLData_builder{
+			ShortUrl:    ptr(s.servPath + shortURLs[i]),
+			OriginalUrl: ptr(originalURLs[i]),
+		}.Build()
 	}
 
-	return &proto.UserURLsResponse{Url: items}, nil
+	return proto.UserURLsResponse_builder{
+		Url: items,
+	}.Build(), nil
 }
+
+func ptr[T any](v T) *T { return &v }
