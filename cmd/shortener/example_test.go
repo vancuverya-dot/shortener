@@ -19,7 +19,7 @@ import (
 // префикс базового адреса.
 func Example_urlPost() {
 	service.InitConsoleLogger()
-	svc, err := handler.New(false, "http://localhost:8080/", "", "")
+	svc, err := handler.New(false, "http://localhost:8080/", "", "", "")
 	if err != nil {
 		fmt.Println("init failed")
 		return
@@ -45,7 +45,7 @@ func Example_urlPost() {
 // проверяет только код статуса, Content-Type ответа и структуру JSON.
 func Example_urlPostJSON() {
 	service.InitConsoleLogger()
-	svc, err := handler.New(false, "http://localhost:8080/", "", "")
+	svc, err := handler.New(false, "http://localhost:8080/", "", "", "")
 	if err != nil {
 		fmt.Println("init failed")
 		return
@@ -71,7 +71,7 @@ func Example_urlPostJSON() {
 // валидный id, а затем переходит по нему через UrlGet.
 func Example_urlGet() {
 	service.InitConsoleLogger()
-	svc, err := handler.New(false, "http://localhost:8080/", "", "")
+	svc, err := handler.New(false, "http://localhost:8080/", "", "", "")
 	if err != nil {
 		fmt.Println("init failed")
 		return

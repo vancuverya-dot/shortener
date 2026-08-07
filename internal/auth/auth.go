@@ -92,3 +92,16 @@ func GetUserID(r *http.Request) string {
 
 	return userID
 }
+
+func NewToken() (string, string, error) {
+	userID := uuid.New().String()
+	token, err := genToken(userID)
+	if err != nil {
+		return "", "", err
+	}
+	return userID, token, nil
+}
+
+func ParseToken(token string) (string, error) {
+	return parseToken(token)
+}

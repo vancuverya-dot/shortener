@@ -10,7 +10,7 @@ import (
 )
 
 func TestRoutes(t *testing.T) {
-	svc, err := handler.New(false, "http://localhost:8080/", "", "")
+	svc, err := handler.New(false, "http://localhost:8080/", "", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}

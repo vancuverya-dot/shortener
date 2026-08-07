@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"net"
 	"net/http"
 	"os/signal"
 	"syscall"
@@ -12,9 +13,13 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/vancuverya-dot/shortener/internal/config"
 	"github.com/vancuverya-dot/shortener/internal/config/db"
+	"github.com/vancuverya-dot/shortener/internal/grpcapi"
+	"github.com/vancuverya-dot/shortener/internal/grpcapi/proto"
 	"github.com/vancuverya-dot/shortener/internal/handler"
 	"github.com/vancuverya-dot/shortener/internal/service"
 	"github.com/vancuverya-dot/shortener/internal/storage"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	"net/http/pprof"
 )
@@ -54,7 +59,8 @@ func main() {
 
 	var writeToDb bool = len(serverConfig.DatabaseDSN) > 0
 
-	svc, err := handler.New(writeToDb, "http://"+serverConfig.ServerAddress+"/", serverConfig.AuditFile, serverConfig.AuditUrl)
+	svc, err := handler.New(writeToDb, "http://"+serverConfig.ServerAddress+"/",
+		serverConfig.AuditFile, serverConfig.AuditUrl, serverConfig.TrustedSubnet)
 	if err != nil {
 		service.Log.Fatalf("инициализация хэндлеров: %v", err)
 	}
@@ -107,6 +113,7 @@ func main() {
 	r.Post("/api/shorten", svc.URLPostJSON)
 	r.Get("/api/user/urls", svc.GetURLsByUser)
 	r.Delete("/api/user/urls", svc.URLDelete)
+	r.With(svc.TrustedSubnetMiddleware).Get("/api/internal/stats", svc.Stats)
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not_allowed", http.StatusBadRequest)
@@ -117,8 +124,11 @@ func main() {
 		Handler: r,
 	}
 
+	// Сертификат генерируется один раз и переиспользуется
+	// HTTP- и gRPC-серверами.
+	var cert tls.Certificate
 	if serverConfig.EnableHTTPS {
-		cert, err := generateSelfSignedCert()
+		cert, err = generateSelfSignedCert()
 		if err != nil {
 			service.Log.Fatalf("генерация TLS-сертификата: %v", err)
 		}
@@ -138,6 +148,26 @@ func main() {
 		}
 	}()
 
+	var grpcOpts []grpc.ServerOption
+	if serverConfig.EnableHTTPS {
+		creds := credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{cert}})
+		grpcOpts = append(grpcOpts, grpc.Creds(creds))
+	}
+
+	grpcServer := grpc.NewServer(grpcOpts...)
+	proto.RegisterShortenerServiceServer(grpcServer, grpcapi.New(svc.Gen(), svc.ServPath(), svc.Audit()))
+
+	go func() {
+		listener, err := net.Listen("tcp", serverConfig.GRPCAddress)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		if err := grpcServer.Serve(listener); err != nil {
+			errCh <- err
+		}
+	}()
+
 	select {
 	case err := <-errCh:
 		service.Log.Errorw(err.Error(), "event", "start server failed")
@@ -151,6 +181,19 @@ func main() {
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		service.Log.Errorw(err.Error(), "event", "server shutdown")
+	}
+
+	grpcStopped := make(chan struct{})
+	go func() {
+		grpcServer.GracefulStop()
+		close(grpcStopped)
+	}()
+
+	select {
+	case <-grpcStopped:
+	case <-shutdownCtx.Done():
+		service.Log.Warnw("timed out, forcing shutdown", "event", "grpc shutdown")
+		grpcServer.Stop()
 	}
 
 	svc.Stop()

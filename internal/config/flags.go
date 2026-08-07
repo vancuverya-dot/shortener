@@ -16,6 +16,8 @@ type serverConfig struct {
 	AuditFile     string
 	AuditUrl      string
 	EnableHTTPS   bool
+	TrustedSubnet string
+	GRPCAddress   string
 }
 
 type flagValue struct {
@@ -34,14 +36,16 @@ func (v flagValue) ValueType() string   { return v.typ }
 // файл конфигурации в формате JSON, значения по умолчанию.
 func LoadServerConfig() (*serverConfig, error) {
 	var (
-		flagRunAddr string
-		baseURLAddr string
-		fileStorage string
-		databaseDSN string
-		auditFile   string
-		auditURL    string
-		enableHTTPS bool
-		configPath  string
+		flagRunAddr   string
+		baseURLAddr   string
+		fileStorage   string
+		databaseDSN   string
+		auditFile     string
+		auditURL      string
+		enableHTTPS   bool
+		configPath    string
+		trustedSubnet string
+		grpcAddress   string
 	)
 
 	flag.StringVar(&flagRunAddr, "a", "", "address and port to run server")
@@ -53,6 +57,8 @@ func LoadServerConfig() (*serverConfig, error) {
 	flag.BoolVar(&enableHTTPS, "s", false, "enable HTTPS")
 	flag.StringVar(&configPath, "c", "", "path to JSON config file")
 	flag.StringVar(&configPath, "config", "", "path to JSON config file")
+	flag.StringVar(&trustedSubnet, "t", "", "trusted subnet CIDR")
+	flag.StringVar(&grpcAddress, "g", "", "address and port to run gRPC server")
 	flag.Parse()
 
 	changed := map[string]bool{}
@@ -67,6 +73,8 @@ func LoadServerConfig() (*serverConfig, error) {
 	v.SetDefault("audit_file", "")
 	v.SetDefault("audit_url", "")
 	v.SetDefault("enable_https", false)
+	v.SetDefault("trusted_subnet", "")
+	v.SetDefault("grpc_address", "localhost:3200")
 
 	if err := bindEnv(v); err != nil {
 		return nil, err
@@ -95,6 +103,8 @@ func LoadServerConfig() (*serverConfig, error) {
 		AuditFile:     v.GetString("audit_file"),
 		AuditUrl:      v.GetString("audit_url"),
 		EnableHTTPS:   v.GetBool("enable_https"),
+		TrustedSubnet: v.GetString("trusted_subnet"),
+		GRPCAddress:   v.GetString("grpc_address"),
 	}
 
 	if cfg.BaseUrl == "" {
@@ -114,6 +124,8 @@ func bindEnv(v *viper.Viper) error {
 		"audit_file":        "AUDIT_FILE",
 		"audit_url":         "AUDIT_URL",
 		"enable_https":      "ENABLE_HTTPS",
+		"trusted_subnet":    "TRUSTED_SUBNET",
+		"grpc_address":      "GRPC_ADDRESS",
 	}
 	for key, env := range bindings {
 		if err := v.BindEnv(key, env); err != nil {
@@ -137,6 +149,8 @@ func bindFlags(v *viper.Viper, changed map[string]bool) error {
 		{"audit_file", "audit-file", "string"},
 		{"audit_url", "audit-url", "string"},
 		{"enable_https", "s", "bool"},
+		{"trusted_subnet", "t", "string"},
+		{"grpc_address", "g", "string"},
 	}
 
 	for _, b := range bindings {
